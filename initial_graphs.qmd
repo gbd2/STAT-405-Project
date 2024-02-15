@@ -25,11 +25,28 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #### Cleaning Data
 ```{r}
+# reads in data
 pbp <- read.csv("play_by_play.csv")
-cols <- c("game_id", "eventnum", "eventmsgtype", "eventmsgactiontype", "period", "wctimestring", "pctimestring",
-          "score")
+
+#
+rm_col <- c("wctimestring", "player1_team_city", "player2_team_city",
+            "player3_team_city", "video_available_flag")
+
+pbp <- pbp[, -which(names(pbp) %in% rm_col)]
+
+cols <- c("game_id", "eventnum", "eventmsgtype", "eventmsgactiontype",
+          "period", "wctimestring", "pctimestring", "score")
+
 no_missing <- complete.cases(pbp[, cols])
-clean <- pbp[no_missing, ]
+pbp <- pbp[no_missing, ]
+
+pbp <- unique(pbp)
+
+#ensure types are correct in every column of importance
+
+
+#create new column parsing shot distance
+
 
 
 
