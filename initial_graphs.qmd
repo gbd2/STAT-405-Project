@@ -25,11 +25,60 @@ knitr::opts_chunk$set(echo = TRUE)
 #### Cleaning Data
 
 ```{r}
-pbp <- read.csv("play_by_play.csv")
-cols <- c("game_id", "eventnum", "eventmsgtype", "eventmsgactiontype", "period", "wctimestring", "pctimestring",
-          "score")
+# reads in data
+library(data.table)
+pbp <- fread("play_by_play.csv")
+
+# Drops irrelevant rows
+pbp[, c("wctimestring",
+        "player1_team_city", "player1_team_nickname", "person1type",
+        "player2_team_city", "player2_team_nickname", "person2type",
+        "player3_team_city", "player3_team_nickname", "person3type",
+        "video_available_flag") := NULL]
+pbp
+
+cols <- c("game_id", "eventnum", "eventmsgtype", "eventmsgactiontype",
+          "period", "wctimestring", "pctimestring", "score")
+
 no_missing <- complete.cases(pbp[, cols])
-clean <- pbp[no_missing, ]
+pbp <- pbp[no_missing, ]
+
+pbp <- unique(pbp)
+
+str <- "test 123' boom 12"
+pattern <- "\\b(\\d+)'"
+
+dist <- function(pattern = "\\b(\\d+)'", str) {
+  pos <- regexpr(pattern, str)
+  sub <- regmatches(str, pos)
+  num <- as.integer(substring(sub, 1, nchar(sub)-1))
+}
+
+pbp <- transform(pbp, shot_distance_home = dist(str=pbp$homedescription))
+pbp <- transform(pbp, shot_distance_away = dist(str=pbp$awaydescription))
+
+
+# Sample dataframe
+df <- data.frame(
+  ID = c(1, 2, 3),
+  Value = c(10, 15, 20)
+)
+
+# Create a new column based on the 'Value' column
+df <- transform(df, NewColumn = 2 * Value)
+
+# View the result
+print(df)
+
+
+
+
+
+#ensure types are correct in every column of importance
+
+
+#create new column parsing shot distance
+
 
 
 
