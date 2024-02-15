@@ -29,8 +29,11 @@ knitr::opts_chunk$set(echo = TRUE)
 pbp <- read.csv("play_by_play.csv")
 
 #
-rm_col <- c("wctimestring", "player1_team_city", "player2_team_city",
-            "player3_team_city", "video_available_flag")
+rm_col <- c("wctimestring",
+            "player1_team_city", "player1_team_nickname", "person1_type",
+            "player2_team_city", "player2_team_nickname", "person2_type",
+            "player2_team_city", "player2_team_nickname", "person3_type",
+            "video_available_flag",)
 
 pbp <- pbp[, -which(names(pbp) %in% rm_col)]
 
@@ -41,6 +44,35 @@ no_missing <- complete.cases(pbp[, cols])
 pbp <- pbp[no_missing, ]
 
 pbp <- unique(pbp)
+
+str <- "test 123' boom 12"
+pattern <- "\\b(\\d+)'"
+
+dist <- function(pattern = "\\b(\\d+)'", str) {
+  pos <- regexpr(pattern, str)
+  sub <- regmatches(str, pos)
+  num <- as.integer(substring(sub, 1, nchar(sub)-1))
+}
+
+pbp <- transform(pbp, shot_distance_home = dist(str=pbp$homedescription))
+pbp <- transform(pbp, shot_distance_away = dist(str=pbp$awaydescription))
+
+
+# Sample dataframe
+df <- data.frame(
+  ID = c(1, 2, 3),
+  Value = c(10, 15, 20)
+)
+
+# Create a new column based on the 'Value' column
+df <- transform(df, NewColumn = 2 * Value)
+
+# View the result
+print(df)
+
+
+
+
 
 #ensure types are correct in every column of importance
 
