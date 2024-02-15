@@ -22,8 +22,8 @@ toc-depth: 2                # Only titles that start with # or ##
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 #### Cleaning Data
+
 ```{r}
 pbp <- read.csv("play_by_play.csv")
 cols <- c("game_id", "eventnum", "eventmsgtype", "eventmsgactiontype", "period", "wctimestring", "pctimestring",
@@ -34,7 +34,6 @@ clean <- pbp[no_missing, ]
 
 
 ```
-
 
 #### All possible configs
 
