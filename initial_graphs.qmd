@@ -13,6 +13,10 @@ toc: true                   # add table of contents at the beginning
 toc-depth: 2                # Only titles that start with # or ##
 ---
 
+## Introduction
+
+The National Basketball Association (NBA) has been in commission since 1946, and has become one of the most well-known sports organizations in history. Over 65,000 games have been played since the birth of the league, and our group was able to find a dataset of play-by-play data from each of these games. Our dataset (see below) has notable columns such as play descriptions, score margins, players involved, and time remaining in the game. Ultimately, our group seeks to analyze many relationships including players (and their characteristics), teams, time, among other statistics.
+
 ```{r setup, include=FALSE}
 ## The following line is an overall configuration
 ## asking that the R code is displayed.
@@ -24,7 +28,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #### Cleaning Data
 
+Here, we are making the data a bit more suitable for analysis by dropping unnecessesary/unnapplicable rows (for instance, we don't need International league stats, as we are only focused on the NBA). We are also adding columns that are combinations of operations on the other columns for ease of use later in our data analysis (ex. PTS / GP = PPG).
+
 ```{r}
+#CLEANING PBP DATA
 # reads in data
 library(data.table)
 pbp <- fread("play_by_play.csv")
@@ -36,53 +43,170 @@ pbp[, c("wctimestring",
         "player3_team_city", "player3_team_nickname", "person3type",
         "video_available_flag") := NULL]
 pbp
-
 cols <- c("game_id", "eventnum", "eventmsgtype", "eventmsgactiontype",
           "period", "wctimestring", "pctimestring", "score")
-
 no_missing <- complete.cases(pbp[, cols])
 pbp <- pbp[no_missing, ]
-
 pbp <- unique(pbp)
-
 str <- "test 123' boom 12"
 pattern <- "\\b(\\d+)'"
-
 dist <- function(pattern = "\\b(\\d+)'", str) {
   pos <- regexpr(pattern, str)
   sub <- regmatches(str, pos)
   num <- as.integer(substring(sub, 1, nchar(sub)-1))
 }
-
 pbp <- transform(pbp, shot_distance_home = dist(str=pbp$homedescription))
 pbp <- transform(pbp, shot_distance_away = dist(str=pbp$awaydescription))
-
-
 # Sample dataframe
 df <- data.frame(
   ID = c(1, 2, 3),
   Value = c(10, 15, 20)
 )
-
 # Create a new column based on the 'Value' column
 df <- transform(df, NewColumn = 2 * Value)
-
 # View the result
 print(df)
-
-
-
-
-
 #ensure types are correct in every column of importance
-
 
 #create new column parsing shot distance
 
+#CLEANING PLAYER STATS DATA
+player_stats <- read.csv("player_stats.csv")
+player_stats <- player_stats[player_stats$Stage != "International", ]
+player_stats$FieldGoalPercentage <- player_stats$FGM / player_stats$FGA * 100
+player_stats$ThreePointPercentage <- player_stats$X3PM / player_stats$X3PA * 100
+player_stats$ThreePointPercentage[is.nan(player_stats$ThreePointPercentage) | is.na(player_stats$ThreePointPercentage)] <- 0
 
+player_stats$Season <- substring(player_stats$Season, 1,4)
 
+player_stats["MPG"] <- player_stats$MIN/player_stats$GP
+player_stats["PPG"] <- player_stats$PTS/player_stats$GP
+player_stats
 
+player_stats["missed_shots"] <- player_stats$FGA - player_stats$FGM
 ```
+
+### Model creation
+
+We will create subsets of the data that correspond to season stats for 199, 2004, 2009, 2014, and 2019 to analyze how certain aspects of the NBA have changed over time.
+
+```{r}
+
+player_stats_99 <- subset(player_stats, Season == "1999")
+player_stats_04 <- subset(player_stats, Season == "2004")
+player_stats_09 <- subset(player_stats, Season == "2009")
+player_stats_14 <- subset(player_stats, Season == "2014")
+player_stats_19 <- subset(player_stats, Season == "2019")
+```
+
+### Minutes per game vs Points per game using Linear Regression
+
+Our group found that player minutes vs. player points from the 1999 season seemed to have a positive correlation that was indicative of a linear relationship. We were interested in finding if this was the case for other seasons as well, so we decided to create models for the 1999, 2004, 2009, 2014, and 2019 seasons and plot their line of best fit to assess the possible linear relationships. After, we will plot all of the lines of best fit together to see how the lines vary over time.
+
+```{r}
+model_99 <- lm(player_stats_99$PPG ~ player_stats_99$MPG)
+model_04 <- lm(player_stats_04$PPG ~ player_stats_04$MPG)
+model_09 <- lm(player_stats_09$PPG ~ player_stats_09$MPG)
+model_14 <- lm(player_stats_14$PPG ~ player_stats_14$MPG)
+model_19 <- lm(player_stats_19$PPG ~ player_stats_19$MPG)
+
+plot(player_stats_99$MPG, player_stats_99$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "1999 Season MPG vs. PPG",)
+abline(model_99, col = 'red')
+plot(player_stats_04$MPG, player_stats_04$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2004 Season MPG vs. PPG",)
+abline(model_04, col = 'blue')
+plot(player_stats_09$MPG, player_stats_09$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2009 Season MPG vs. PPG",)
+abline(model_09, col = 'green')
+plot(player_stats_14$MPG, player_stats_14$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2014 Season MPG vs. PPG",)
+abline(model_14, col = 'purple')
+plot(player_stats_19$MPG, player_stats_19$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2019 Season MPG vs. PPG",)
+abline(model_19, col = 'lightsalmon')
+
+
+xrange <- c(0,50)
+yrange <- c(0, 30)
+
+plot(xrange, yrange, type = "n", xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "MPG vs. PPG", col = 'white')
+abline(model_99, col = 'red')
+abline(model_04, col = 'blue')
+abline(model_09, col = 'green')
+abline(model_14, col = 'purple')
+abline(model_19, col = 'lightsalmon')
+legend("topleft", legend=c("1999", "2004", "2009", "2014", "2019"), col=c("red", "blue", "green", "purple","lightsalmon"), pch=c(19, 18), lty=1, cex = .75)
+```
+
+#### Interpretation of Linear Regression Model
+
+As we can see from the plots with their line of best fit, each year has a positive linear relationship with a line of best fit that adequately predicts points per game in respect to minutes per game. However, when analyzing the lines of best fit plotted together, all seasons have a quite similar intercept, and all have a very close slope to one another aside from the 2019 season. When going back and looking at the data for 2019 once again, we found that towards the higher end of minutes per game (33+), the spread of the data becomes increasingly noticeable, especially towards the higher end of the points per game spectrum as we approach 40+ minutes per game. This indicates that there may be outliers and bad leverage points, which we intend to explore in the future.
+
+### Histogram of Heights over time
+
+Our group was interested to see how the heights of NBA players have changed (or not) over time. So, we decided to create histograms, all with the same limits 160 centimeters is considered very short for an NBA player, and 230 centimeters is considered very tall).
+
+```{r}
+hist(player_stats_99$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 1999 Season")
+hist(player_stats_04$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2004 Season")
+hist(player_stats_09$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2009 Season")
+hist(player_stats_14$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2014 Season")
+hist(player_stats_19$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2019 Season")
+```
+
+From the data, we can see that from the 1999 to 2019, seasons the most common range for heights in all years was 200-210 centimeters. Also, the extreme heights (short and tall) seen in the 1999 and 2004 seasons do not appear in the future seasons,
+
+### Shots Made to Shots Missed Pie Chart over time
+
+Our group was interested in seeing the trends of shots missed to shots made in a season over time. We decided to create a pie chart to visualize the proportion of the 1999, 2004, 2009, 2014, and 2019 seasons.
+
+```{r}
+missed_made_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE), sum(player_stats_99$FGM, na.rm = TRUE))
+
+percentages_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE)/(sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)),sum(player_stats_99$FGM, na.rm = TRUE)/ (sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)))
+
+labels_99 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_99, 3), "%")
+pie(missed_made_99, main = "Shots Made to Shots Missed in 1999 Season", col = c('darkorchid1', 'thistle3'), labels = labels_99, radius = 1)
+
+
+missed_made_04 <- c(sum(player_stats_04$missed_shots, na.rm = TRUE), sum(player_stats_04$FGM, na.rm = TRUE))
+
+percentages_04 <- c(sum(player_stats_04$missed_shots, na.rm = TRUE)/(sum(player_stats_04$missed_shots, na.rm = TRUE)+sum(player_stats_04$FGM, na.rm = TRUE)),sum(player_stats_04$FGM, na.rm = TRUE)/ (sum(player_stats_04$missed_shots, na.rm = TRUE)+sum(player_stats_04$FGM, na.rm = TRUE)))
+
+labels_04 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_04, 3), "%")
+pie(missed_made_04, main = "Shots Made to Shots Missed in 2004 Season", col = c('darkorchid1', 'thistle3'), labels = labels_04, radius = 1)
+
+
+
+missed_made_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE), sum(player_stats_09$FGM, na.rm = TRUE))
+
+percentages_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE)/(sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)),sum(player_stats_09$FGM, na.rm = TRUE)/ (sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)))
+
+labels_09 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_09, 3), "%")
+pie(missed_made_09, main = "Shots Made to Shots Missed in 2009 Season", col = c('darkorchid1', 'thistle3'), labels = labels_09, radius = 1)
+
+
+
+
+missed_made_14 <- c(sum(player_stats_14$missed_shots, na.rm = TRUE), sum(player_stats_14$FGM, na.rm = TRUE))
+
+percentages_14 <- c(sum(player_stats_14$missed_shots, na.rm = TRUE)/(sum(player_stats_14$missed_shots, na.rm = TRUE)+sum(player_stats_14$FGM, na.rm = TRUE)),sum(player_stats_14$FGM, na.rm = TRUE)/ (sum(player_stats_14$missed_shots, na.rm = TRUE)+sum(player_stats_14$FGM, na.rm = TRUE)))
+
+labels_14 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_14, 3), "%")
+pie(missed_made_14, main = "Shots Made to Shots Missed in 2014 Season", col = c('darkorchid1', 'thistle3'), labels = labels_14, radius = 1)
+
+
+missed_made_19 <- c(sum(player_stats_19$missed_shots, na.rm = TRUE), sum(player_stats_19$FGM, na.rm = TRUE))
+
+percentages_19 <- c(sum(player_stats_19$missed_shots, na.rm = TRUE)/(sum(player_stats_19$missed_shots, na.rm = TRUE)+sum(player_stats_19$FGM, na.rm = TRUE)),sum(player_stats_19$FGM, na.rm = TRUE)/ (sum(player_stats_19$missed_shots, na.rm = TRUE)+sum(player_stats_19$FGM, na.rm = TRUE)))
+
+labels_19 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_19, 3), "%")
+pie(missed_made_19, main = "Shots Made to Shots Missed in 2019 Season", col = c('darkorchid1', 'thistle3'), labels = labels_19, radius = 1)
+```
+
+From the pie charts, we can see that shot accuracy has stayed relatively constant over the period of time, as the percentages of shots made and shots missed are close to the same for every season sampled.
 
 #### All possible configs
 
