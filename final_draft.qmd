@@ -1,0 +1,359 @@
+---
+title: "Analyzing NBA Data Draft 1"
+author: "Gavin Daves, Grant Thompson, Evan Brown, Seyaul Kim"
+date: 'February 16, 2024'
+format:
+  pdf: default
+  html: default
+pdf-engine: pdflatex
+editor: visual
+fontsize: 10pt
+geometry: margin=1in
+toc: true                   # add table of contents at the beginning
+toc-depth: 2                # Only titles that start with # or ##
+---
+
+## Analyzing how the Game of Basketball Developed Over Time
+
+The National Basketball Association (NBA) has been in commission since 1946, and has become one of the most well-known sports organizations in history. Over 65,000 games have been played since the birth of the league, and our group was able to find a dataset of play-by-play data from each of these games. Our dataset (see below) has notable columns such as play descriptions, score margins, players involved, and time remaining in the game. Ultimately, our group seeks to analyze many relationships including players (and their characteristics), teams, time, among other statistics.
+
+```{r setup, include=FALSE}
+## The following line is an overall configuration
+## asking that the R code is displayed.
+## Set to FALSE to avoid showing the code by default
+## (required for your final project, where you are not supposed
+##  to show code)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Cleaning the Primary Data Set / Extracting Information
+
+A majority of our stats and information in the play-by-play data set come in the form of strings in description columns. Therefore, we need to extract this information, with the help of regex's and subsetting.
+
+```{r}
+library(data.table)
+library(dplyr)
+
+# reads in play-by-play data
+pbp <- fread("play_by_play.csv")
+
+# reads in game-by-game data
+game <- fread("game.csv")
+
+# Changes the dates to just their years
+game$game_date <- as.integer((format(game$game_date, "%Y")))
+game <- game[, c("game_id", "game_date")]
+
+# Removes unnecessary columns
+pbp[, c("wctimestring", "player1_team_city", "player1_team_nickname", "person1type", "player2_team_city", "player2_team_nickname", "person2type", "player3_team_city", "player3_team_nickname", "person3type", "video_available_flag")] <- NULL
+
+# Ensures all vital columns are not empty/NA
+no_missing <- complete.cases(pbp$"game_id", pbp$"eventnum", pbp$"eventmsgtype", pbp$"eventmsgactiontype",
+                             pbp$"period", pbp$"wctimestring", pbp$"pctimestring", pbp$"score")
+pbp <- pbp[no_missing, ]
+
+# Clears up memory space
+rm(no_missing)
+
+# Removes duplicate rows
+pbp <- unique(pbp)
+
+# Merge with game-by-game data to get year information for each event (row)
+pbp <- merge(pbp, game, by = "game_id", all.x=TRUE)
+```
+
+#### Extracting Shot Distances
+
+One of the data points we are extracting is the jumpshot distance for made shots. In doing so, we can analyze average shot distance over time, find the make percentage per jumpshot distance, and analyze what the best jumpshot is.
+
+```{r}
+# parses descriptions to get shot distance
+dist <- function(str, pattern = "\\b(\\d+)'") {
+  pos <- regexpr(pattern, str)
+  if (pos[1] <= 0){
+    return(0)
+  }
+  sub <- regmatches(str, pos)
+  num <- as.integer(substring(sub, 1, nchar(sub)-1))
+  return (num)
+}
+
+# initialize the column
+pbp$shot_dist <- 0
+
+# Runs the parser on each row, parsing different columns depending on what is empty or not
+pbp <- pbp %>%
+  mutate(
+    shot_dist = apply(pbp[, c("homedescription", "visitordescription")], 1, function(row) {
+      dist_value <- dist(row["homedescription"])
+      if (is.na(dist_value) || dist_value <= 0) {
+        dist_value <- dist(row["visitordescription"])
+      }
+      return(dist_value)
+    })
+  )
+```
+
+#### Calculating Average Shot Distance by Year
+
+```{r}
+# Graph specific
+shot_only <- pbp[, c("game_date", "shot_dist")]
+shot_only <- shot_only[shot_only$shot_dist > 0, ]
+
+
+# Groups by year and find average shot distance for each year
+shot_only$game_date <- as.factor(shot_only$game_date)
+
+avg_dist <- data.frame(
+  game_date = levels(shot_only$game_date),
+  avg_shot_dist = numeric(length(levels(shot_only$game_date)))
+)
+
+for (i in 1:length(levels(shot_only$game_date))) {
+  year <- levels(shot_only$game_date)[i]
+  avg_dist$avg_shot_dist[i] <- mean(shot_only$shot_dist[shot_only$game_date == year], na.rm = TRUE)
+}
+```
+
+### Cleaning the Secondary Data Set / Extracting Information
+
+Here, we are making the data a bit more suitable for analysis by dropping unnecessesary/unnapplicable rows (for instance, we don't need International league stats, as we are only focused on the NBA). We are also adding columns that are combinations of operations on the other columns for ease of use later in our data analysis (ex. PTS / GP = PPG).
+
+```{r}
+player_stats <- read.csv("player_stats.csv")
+player_stats <- player_stats[player_stats$Stage != "International", ]
+player_stats$FieldGoalPercentage <- player_stats$FGM / player_stats$FGA * 100
+player_stats$ThreePointPercentage <- player_stats$X3PM / player_stats$X3PA * 100
+player_stats$ThreePointPercentage[is.nan(player_stats$ThreePointPercentage) | is.na(player_stats$ThreePointPercentage)] <- 0
+
+player_stats$Season <- substring(player_stats$Season, 1,4)
+
+player_stats["MPG"] <- player_stats$MIN/player_stats$GP
+player_stats["PPG"] <- player_stats$PTS/player_stats$GP
+player_stats
+
+player_stats["missed_shots"] <- player_stats$FGA - player_stats$FGM
+```
+
+### Average Shot Distances By Year
+
+Trends and play styles change constantly in the NBA as different teams try different strategies to win games. This leads to a greater focus on different parts of the game, from speed of play to 3pt shots. This graph analyses how far from the basket on average players were attempting shots every year.
+
+```{r}
+# Plots as a line graph
+plot(avg_dist$game_date, avg_dist$avg_shot_dist,
+     type="l", xlab="Year", ylab="Average Shot Distance",
+     main="Average Distance of Attempted Shots in the NBA By Year",
+     col="black")
+
+tick_marks_x <- seq(min(x), max(x), by = 1)
+labels_x <- ifelse(tick_marks_x %% 5 == 0, as.character(tick_marks_x), "")
+
+axis(1, at = tick_marks_x, labels = labels_x, tick = TRUE)
+
+tick_marks_y <- seq(floor(min(y)), ceiling(max(y)), by = 1)
+labels_y <- ifelse(tick_marks_y %% 5 == 0, as.character(tick_marks_y), "")
+
+axis(2, at = tick_marks_y, labels = labels_y, tick = TRUE)
+```
+
+We can see that the distance of shots increased up until around 2010, when they had a massive drop. This could be for a number of reasons, with one likely one being related to a play style revolution. It was around this time that teams realized how much more valuable 3pt shots were. Before this revolution, players often ignored 3pt shots to move a few feet closer. After this revolution, players either took a 3pt shot or moved twenty feet closer.
+
+At the beginning of this revolution, it is possible that players realized that 2-point shots ten plus feet away from the basket were not worth it, leading to a complete disregard for these shots, even if they made sense, taking a lot of one or two foot shots instead. All things balance out though, as players likely took things to an extreme at the beginning, but started to move back to taking some long distance 2-point shots as time went on if the current state of the game warranted it, causing the average shot distance to start to rise again.
+
+### Model creation
+
+We will create subsets of the data that correspond to season stats for 199, 2004, 2009, 2014, and 2019 to analyze how certain aspects of the NBA have changed over time.
+
+```{r}
+
+player_stats_99 <- subset(player_stats, Season == "1999")
+player_stats_04 <- subset(player_stats, Season == "2004")
+player_stats_09 <- subset(player_stats, Season == "2009")
+player_stats_14 <- subset(player_stats, Season == "2014")
+player_stats_19 <- subset(player_stats, Season == "2019")
+
+```
+
+### Minutes per game vs Points per game using Linear Regression
+
+Our group found that player minutes vs. player points from the 1999 season seemed to have a positive correlation that was indicative of a linear relationship. We were interested in finding if this was the case for other seasons as well, so we decided to create models for the 1999, 2004, 2009, 2014, and 2019 seasons and plot their line of best fit to assess the possible linear relationships. After, we will plot all of the lines of best fit together to see how the lines vary over time.
+
+```{r}
+
+model_99 <- lm(player_stats_99$PPG ~ player_stats_99$MPG)
+model_04 <- lm(player_stats_04$PPG ~ player_stats_04$MPG)
+model_09 <- lm(player_stats_09$PPG ~ player_stats_09$MPG)
+model_14 <- lm(player_stats_14$PPG ~ player_stats_14$MPG)
+model_19 <- lm(player_stats_19$PPG ~ player_stats_19$MPG)
+
+plot(player_stats_99$MPG, player_stats_99$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "1999 Season MPG vs. PPG",)
+abline(model_99, col = 'red')
+plot(player_stats_04$MPG, player_stats_04$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2004 Season MPG vs. PPG",)
+abline(model_04, col = 'blue')
+plot(player_stats_09$MPG, player_stats_09$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2009 Season MPG vs. PPG",)
+abline(model_09, col = 'green')
+plot(player_stats_14$MPG, player_stats_14$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2014 Season MPG vs. PPG",)
+abline(model_14, col = 'purple')
+plot(player_stats_19$MPG, player_stats_19$PPG, xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "2019 Season MPG vs. PPG",)
+abline(model_19, col = 'lightsalmon')
+
+
+xrange <- c(0,50)
+yrange <- c(0, 30)
+
+plot(xrange, yrange, type = "n", xlab = "Minutes per Game", 
+         ylab = "Points per Game", main = "MPG vs. PPG", col = 'white')
+abline(model_99, col = 'red')
+abline(model_04, col = 'blue')
+abline(model_09, col = 'green')
+abline(model_14, col = 'purple')
+abline(model_19, col = 'lightsalmon')
+legend("topleft", legend=c("1999", "2004", "2009", "2014", "2019"), col=c("red", "blue", "green", "purple","lightsalmon"), pch=c(19, 18), lty=1, cex = .75)
+```
+
+As we can see from the plots with their line of best fit, each year has a positive linear relationship with a line of best fit that adequately predicts points per game in respect to minutes per game. However, when analyzing the lines of best fit plotted together, all seasons have a quite similar intercept, and all have a very close slope to one another aside from the 2019 season. When going back and looking at the data for 2019 once again, we found that towards the higher end of minutes per game (33+), the spread of the data becomes increasingly noticeable, especially towards the higher end of the points per game spectrum as we approach 40+ minutes per game. This indicates that there may be outliers and bad leverage points, which we intend to explore in the future.
+
+### Histogram of Heights over time
+
+Our group was interested to see how the heights of NBA players have changed (or not) over time. So, we decided to create histograms, all with the same limits 160 centimeters is considered very short for an NBA player, and 230 centimeters is considered very tall).
+
+```{r}
+
+hist(player_stats_99$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 1999 Season")
+hist(player_stats_04$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2004 Season")
+hist(player_stats_09$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2009 Season")
+hist(player_stats_14$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2014 Season")
+hist(player_stats_19$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2019 Season")
+
+```
+
+From the data, we can see that from the 1999 to 2019, seasons the most common range for heights in all years was 200-210 centimeters. Also, the extreme heights (short and tall) seen in the 1999 and 2004 seasons do not appear in the future seasons,
+
+### Shots Made to Shots Missed Pie Chart over time
+
+Our group was interested in seeing the trends of shots missed to shots made in a season over time. We decided to create a pie chart to visualize the proportion of the 1999, 2004, 2009, 2014, and 2019 seasons.
+
+```{r}
+missed_made_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE), sum(player_stats_99$FGM, na.rm = TRUE))
+
+percentages_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE)/(sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)),sum(player_stats_99$FGM, na.rm = TRUE)/ (sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)))
+
+labels_99 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_99, 3), "%")
+pie(missed_made_99, main = "Shots Made to Shots Missed in 1999 Season", col = c('darkorchid1', 'thistle3'), labels = labels_99, radius = 1)
+
+
+missed_made_04 <- c(sum(player_stats_04$missed_shots, na.rm = TRUE), sum(player_stats_04$FGM, na.rm = TRUE))
+
+percentages_04 <- c(sum(player_stats_04$missed_shots, na.rm = TRUE)/(sum(player_stats_04$missed_shots, na.rm = TRUE)+sum(player_stats_04$FGM, na.rm = TRUE)),sum(player_stats_04$FGM, na.rm = TRUE)/ (sum(player_stats_04$missed_shots, na.rm = TRUE)+sum(player_stats_04$FGM, na.rm = TRUE)))
+
+labels_04 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_04, 3), "%")
+pie(missed_made_04, main = "Shots Made to Shots Missed in 2004 Season", col = c('darkorchid1', 'thistle3'), labels = labels_04, radius = 1)
+
+
+
+missed_made_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE), sum(player_stats_09$FGM, na.rm = TRUE))
+
+percentages_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE)/(sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)),sum(player_stats_09$FGM, na.rm = TRUE)/ (sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)))
+
+labels_09 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_09, 3), "%")
+pie(missed_made_09, main = "Shots Made to Shots Missed in 2009 Season", col = c('darkorchid1', 'thistle3'), labels = labels_09, radius = 1)
+
+
+
+
+missed_made_14 <- c(sum(player_stats_14$missed_shots, na.rm = TRUE), sum(player_stats_14$FGM, na.rm = TRUE))
+
+percentages_14 <- c(sum(player_stats_14$missed_shots, na.rm = TRUE)/(sum(player_stats_14$missed_shots, na.rm = TRUE)+sum(player_stats_14$FGM, na.rm = TRUE)),sum(player_stats_14$FGM, na.rm = TRUE)/ (sum(player_stats_14$missed_shots, na.rm = TRUE)+sum(player_stats_14$FGM, na.rm = TRUE)))
+
+labels_14 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_14, 3), "%")
+pie(missed_made_14, main = "Shots Made to Shots Missed in 2014 Season", col = c('darkorchid1', 'thistle3'), labels = labels_14, radius = 1)
+
+
+missed_made_19 <- c(sum(player_stats_19$missed_shots, na.rm = TRUE), sum(player_stats_19$FGM, na.rm = TRUE))
+
+percentages_19 <- c(sum(player_stats_19$missed_shots, na.rm = TRUE)/(sum(player_stats_19$missed_shots, na.rm = TRUE)+sum(player_stats_19$FGM, na.rm = TRUE)),sum(player_stats_19$FGM, na.rm = TRUE)/ (sum(player_stats_19$missed_shots, na.rm = TRUE)+sum(player_stats_19$FGM, na.rm = TRUE)))
+
+labels_19 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_19, 3), "%")
+pie(missed_made_19, main = "Shots Made to Shots Missed in 2019 Season", col = c('darkorchid1', 'thistle3'), labels = labels_19, radius = 1)
+
+```
+
+From the pie charts, we can see that shot accuracy has stayed relatively constant over the period of time, as the percentages of shots made and shots missed are close to the same for every season sampled.
+
+### Barchart of Average 3-Point Shooting Percentages of NBA Big-Men By Season
+
+In recent years, the NBA has seen a historic rise in the three point shot. Teams are relying on it more than ever. At the same time, the NBA has placed a focus on the drafting and development of skilled big-men. Gone are the days of the back-to-the-basket big, who uses their pure size and strength to win down low in the post. Players like Nikola Jokic, Victor Wembanyama, and Karl-Anthony Towns are known for their ability to space the floor and hit the three point shot. We sought out to analyze this trend, to see if the data would back up our qualitative observations.
+
+```{r}
+# Convert height_cm to numeric
+player_stats$height_cm <- as.numeric(player_stats$height_cm)
+
+# Filter tall players
+tall_players <- player_stats[player_stats$height_cm > 203, ]
+
+# Filter tall players w ThreePointPercentage >= 30
+tall_players_30plus <- tall_players[tall_players$ThreePointPercentage >= 30, ]
+
+# Count the number of tall players who shot 30% or over by season
+num_tall_players <- table(tall_players_30plus$Season)
+
+# Convert the result to a data frame
+result <- data.frame(Season = names(num_tall_players), NumTallPlayers = as.vector(num_tall_players))
+
+# Set graphical parameters
+par(cex.main = 0.9, cex.lab =0.9)
+
+# Create bar plot with adjusted title and y-axis label size
+barplot(result$NumTallPlayers, names.arg = result$Season, col = "blue",
+        xlab = "Season", ylab = "Number of 6'8\"+ Players (3PT >= 30%)",
+        main = "Number of 6'8\"+ Players who shot 30% or over from 3PT by Season")
+grid()
+```
+
+We chose to go with the height 6'8" as it is the average height for a power forward. In this plot, we are aiming to examine the number of power forwards and centers that shoot \>30% from the three point line. From our graph, we can see that from 1999-2014 there are about 40 NBA big-men who shoot at least 30% from three. In recent years, namely since 2016, this number has doubled, with a massive jump from the 2014 season to the 2016 season. This graph lines up with our qualitative observations, that the NBA has observed a sudden and big jump in skilled big-men with shooting abilities.
+
+### Scatter-Plot of Individual Player's Field Goal Attempts to 3-Point Attempts by Season
+
+```{r}
+library(viridis)
+# Convert height_cm to numeric if it's not already
+player_stats$height_cm <- as.numeric(player_stats$height_cm)
+
+seasons <- c("2011-2012", "2012-2013", "2013-2014", "2014-2015", "2015-2016", "2016-2017", "2017-2018", "2018-2019", "2019-2020")
+# Filter data for seasons 2011-2012 to 2019-2020
+filtered_player_stats <- player_stats[player_stats$Season %in% seasons, ]
+
+# Set up the layout with one row and two columns
+layout(matrix(1:2, nrow = 1), widths = c(4, 1))
+# Iterate through each season
+for (season in unique(filtered_player_stats$Season)) {
+  print("test")
+  # Subset data for the current season
+  season_data <- filtered_player_stats[filtered_player_stats$Season == season, ]
+
+  # Create a scatter plot for the current season
+  plot(season_data$FGM, season_data$X3PA, pch = 16, col = viridis(1, option = "D"),
+       xlab = "Field Goals Made", ylab = "3-Point Field Goals Attempted",
+       main = paste("Field Goals Made vs. 3-Point Field Goals Attempted for", season))
+
+  # Add legend with smaller font size
+  legend("topright", legend = levels(factor(season_data$Season)), col = viridis(1, option = "D"), pch = 16, cex = 0.7, ncol = 2, bg = "white")
+
+  # Add gridlines
+  grid()
+
+  # Go to the next plot in the layout
+  layout.next()
+}
+```
+
+```{r}
+print(filtered_player_stats)
+```
