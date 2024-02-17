@@ -17,6 +17,8 @@ toc-depth: 2                # Only titles that start with # or ##
 
 The National Basketball Association (NBA) has been in commission since 1946, and has become one of the most well-known sports organizations in history. Over 65,000 games have been played since the birth of the league, and our group was able to find a dataset of play-by-play data from each of these games. Our dataset (see below) has notable columns such as play descriptions, score margins, players involved, and time remaining in the game. Ultimately, our group seeks to analyze many relationships including players (and their characteristics), teams, time, among other statistics.
 
+We are looking at how the NBA and the game of basketball has developed over time. To start, we analyzed the frequency of the three point shot, and the shooting skill of players in general. We wanted to find statistical evidence that supports the current trend of three pointers and skilled big-men.
+
 ```{r setup, include=FALSE}
 ## The following line is an overall configuration
 ## asking that the R code is displayed.
@@ -60,6 +62,12 @@ pbp <- unique(pbp)
 
 # Merge with game-by-game data to get year information for each event (row)
 pbp <- merge(pbp, game, by = "game_id", all.x=TRUE)
+head(pbp)
+```
+### Primary Data Summary
+```{r}
+summary(pbp)
+str(pbp)
 ```
 
 #### Extracting Shot Distances
@@ -114,17 +122,16 @@ for (i in 1:length(levels(shot_only$game_date))) {
   year <- levels(shot_only$game_date)[i]
   avg_dist$avg_shot_dist[i] <- mean(shot_only$shot_dist[shot_only$game_date == year], na.rm = TRUE)
 }
-
 ```
 
-#### Average Shot Distances By Year
+### Average Shot Distances By Year
 
 Trends and play styles change constantly in the NBA as different teams try different strategies to win games. This leads to a greater focus on different parts of the game, from speed of play to 3pt shots. This graph analyses how far from the basket on average players were attempting shots every year.
 
 ```{r}
 # Plots as a line graph
 plot(avg_dist$game_date, avg_dist$avg_shot_dist,
-     type="l", xlab="Year", ylab="Average Shot Distance (ft)",
+     type="l", xlab="Year", ylab="Average Shot Distance",
      main="Average Distance of Attempted Shots in the NBA By Year",
      col="black")
 
@@ -133,15 +140,20 @@ labels_x <- ifelse(tick_marks_x %% 5 == 0, as.character(tick_marks_x), "")
 
 axis(1, at = tick_marks_x, labels = labels_x, tick = TRUE)
 
-tick_marks_y <- seq(0, ceiling(max(avg_dist$avg_shot_dist)), by = 1)
+tick_marks_y <- seq(floor(min(avg_dist$avg_shot_dist)), ceiling(max(avg_dist$avg_shot_dist)), by = 1)
 labels_y <- ifelse(tick_marks_y %% 5 == 0, as.character(tick_marks_y), "")
 
 axis(2, at = tick_marks_y, labels = labels_y, tick = TRUE)
 ```
 
+We can see that the distance of shots increased up until around 2010, when they had a massive drop. This could be for a number of reasons, with one likely one being related to a play style revolution. It was around this time that teams realized how much more valuable 3pt shots were. Before this revolution, players often ignored 3pt shots to move a few feet closer. After this revolution, players either took a 3pt shot or moved twenty feet closer.
 
-#### Shot Distance By Period
+At the beginning of this revolution, it is possible that players realized that 2-point shots ten plus feet away from the basket were not worth it, leading to a complete disregard for these shots, even if they made sense, taking a lot of one or two foot shots instead. All things balance out though, as players likely took things to an extreme at the beginning, but started to move back to taking some long distance 2-point shots as time went on if the current state of the game warranted it, causing the average shot distance to start to rise again.
 
+### Shot Distance By Period
+
+Next, we wanted to look at how basketball develops within the span of a single game. In doing so, we
+wanted to look at the average shot distance by quarter. We can use this visualization to examine how the state of the game determines a player/team's shot choice.
 ```{r}
 shot_period <- pbp[, c("period", "shot_dist")]
 shot_period <- shot_period[order(shot_period$period), ]
@@ -153,14 +165,19 @@ par(mfrow = c(1, 5))
 
 for (i in 1:5) {
   subset <- shot_period[shot_period$period == i, ]
+  # Conditionally set the main argument
+  main_title <- ifelse(i == 5, "Overtime", paste("Quarter", i))
   boxplot(subset$shot_dist,
-        main = paste("Period", i),
-        ylab = "Shot Distance (ft)")
-  print(mean(subset$shot_dist))
+          main = main_title,
+          ylab = "Shot Distance (ft)")
+  print(paste0("Quarter ", i, " Mean Shot Distance: ", mean(subset$shot_dist)))
 }
+
 
 par(mfrow = c(1,1))
 ```
+Since the time remaining in the game might affect where players shoot from, we thought it would be appropriate to graph how players start to shoot based on which period of the game 
+the game is in. The graph is a box and whiskers plot that analyses the disrtibution of where players shot from based on which of the 5 possible phases the game could be in.
 
 ### Cleaning the Secondary Data Set / Extracting Information
 
@@ -180,33 +197,14 @@ player_stats["PPG"] <- player_stats$PTS/player_stats$GP
 player_stats
 
 player_stats["missed_shots"] <- player_stats$FGA - player_stats$FGM
+head(player_stats)
 ```
 
-### Average Shot Distances By Year
-
-Trends and play styles change constantly in the NBA as different teams try different strategies to win games. This leads to a greater focus on different parts of the game, from speed of play to 3pt shots. This graph analyses how far from the basket on average players were attempting shots every year.
-
+### Secondary Data Summary
 ```{r}
-# Plots as a line graph
-plot(avg_dist$game_date, avg_dist$avg_shot_dist,
-     type="l", xlab="Year", ylab="Average Shot Distance",
-     main="Average Distance of Attempted Shots in the NBA By Year",
-     col="black")
-
-tick_marks_x <- seq(min(x), max(x), by = 1)
-labels_x <- ifelse(tick_marks_x %% 5 == 0, as.character(tick_marks_x), "")
-
-axis(1, at = tick_marks_x, labels = labels_x, tick = TRUE)
-
-tick_marks_y <- seq(floor(min(y)), ceiling(max(y)), by = 1)
-labels_y <- ifelse(tick_marks_y %% 5 == 0, as.character(tick_marks_y), "")
-
-axis(2, at = tick_marks_y, labels = labels_y, tick = TRUE)
+summary(player_stats)
+str(player_stats)
 ```
-
-We can see that the distance of shots increased up until around 2010, when they had a massive drop. This could be for a number of reasons, with one likely one being related to a play style revolution. It was around this time that teams realized how much more valuable 3pt shots were. Before this revolution, players often ignored 3pt shots to move a few feet closer. After this revolution, players either took a 3pt shot or moved twenty feet closer.
-
-At the beginning of this revolution, it is possible that players realized that 2-point shots ten plus feet away from the basket were not worth it, leading to a complete disregard for these shots, even if they made sense, taking a lot of one or two foot shots instead. All things balance out though, as players likely took things to an extreme at the beginning, but started to move back to taking some long distance 2-point shots as time went on if the current state of the game warranted it, causing the average shot distance to start to rise again.
 
 ### Model creation
 
@@ -302,16 +300,12 @@ percentages_04 <- c(sum(player_stats_04$missed_shots, na.rm = TRUE)/(sum(player_
 labels_04 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_04, 3), "%")
 pie(missed_made_04, main = "Shots Made to Shots Missed in 2004 Season", col = c('darkorchid1', 'thistle3'), labels = labels_04, radius = 1)
 
-
-
 missed_made_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE), sum(player_stats_09$FGM, na.rm = TRUE))
 
 percentages_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE)/(sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)),sum(player_stats_09$FGM, na.rm = TRUE)/ (sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)))
 
 labels_09 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_09, 3), "%")
 pie(missed_made_09, main = "Shots Made to Shots Missed in 2009 Season", col = c('darkorchid1', 'thistle3'), labels = labels_09, radius = 1)
-
-
 
 
 missed_made_14 <- c(sum(player_stats_14$missed_shots, na.rm = TRUE), sum(player_stats_14$FGM, na.rm = TRUE))
@@ -365,41 +359,3 @@ grid()
 
 We chose to go with the height 6'8" as it is the average height for a power forward. In this plot, we are aiming to examine the number of power forwards and centers that shoot \>30% from the three point line. From our graph, we can see that from 1999-2014 there are about 40 NBA big-men who shoot at least 30% from three. In recent years, namely since 2016, this number has doubled, with a massive jump from the 2014 season to the 2016 season. This graph lines up with our qualitative observations, that the NBA has observed a sudden and big jump in skilled big-men with shooting abilities.
 
-### Scatter-Plot of Individual Player's Field Goal Attempts to 3-Point Attempts by Season
-
-```{r}
-library(viridis)
-# Convert height_cm to numeric if it's not already
-player_stats$height_cm <- as.numeric(player_stats$height_cm)
-
-seasons <- c("2011-2012", "2012-2013", "2013-2014", "2014-2015", "2015-2016", "2016-2017", "2017-2018", "2018-2019", "2019-2020")
-# Filter data for seasons 2011-2012 to 2019-2020
-filtered_player_stats <- player_stats[player_stats$Season %in% seasons, ]
-
-# Set up the layout with one row and two columns
-layout(matrix(1:2, nrow = 1), widths = c(4, 1))
-# Iterate through each season
-for (season in unique(filtered_player_stats$Season)) {
-  print("test")
-  # Subset data for the current season
-  season_data <- filtered_player_stats[filtered_player_stats$Season == season, ]
-
-  # Create a scatter plot for the current season
-  plot(season_data$FGM, season_data$X3PA, pch = 16, col = viridis(1, option = "D"),
-       xlab = "Field Goals Made", ylab = "3-Point Field Goals Attempted",
-       main = paste("Field Goals Made vs. 3-Point Field Goals Attempted for", season))
-
-  # Add legend with smaller font size
-  legend("topright", legend = levels(factor(season_data$Season)), col = viridis(1, option = "D"), pch = 16, cex = 0.7, ncol = 2, bg = "white")
-
-  # Add gridlines
-  grid()
-
-  # Go to the next plot in the layout
-  layout.next()
-}
-```
-
-```{r}
-print(filtered_player_stats)
-```
