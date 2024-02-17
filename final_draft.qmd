@@ -114,6 +114,52 @@ for (i in 1:length(levels(shot_only$game_date))) {
   year <- levels(shot_only$game_date)[i]
   avg_dist$avg_shot_dist[i] <- mean(shot_only$shot_dist[shot_only$game_date == year], na.rm = TRUE)
 }
+
+```
+
+#### Average Shot Distances By Year
+
+Trends and play styles change constantly in the NBA as different teams try different strategies to win games. This leads to a greater focus on different parts of the game, from speed of play to 3pt shots. This graph analyses how far from the basket on average players were attempting shots every year.
+
+```{r}
+# Plots as a line graph
+plot(avg_dist$game_date, avg_dist$avg_shot_dist,
+     type="l", xlab="Year", ylab="Average Shot Distance (ft)",
+     main="Average Distance of Attempted Shots in the NBA By Year",
+     col="black")
+
+tick_marks_x <- seq(min(avg_dist$game_date), max(avg_dist$game_date), by = 1)
+labels_x <- ifelse(tick_marks_x %% 5 == 0, as.character(tick_marks_x), "")
+
+axis(1, at = tick_marks_x, labels = labels_x, tick = TRUE)
+
+tick_marks_y <- seq(0, ceiling(max(avg_dist$avg_shot_dist)), by = 1)
+labels_y <- ifelse(tick_marks_y %% 5 == 0, as.character(tick_marks_y), "")
+
+axis(2, at = tick_marks_y, labels = labels_y, tick = TRUE)
+```
+
+
+#### Shot Distance By Period
+
+```{r}
+shot_period <- pbp[, c("period", "shot_dist")]
+shot_period <- shot_period[order(shot_period$period), ]
+shot_period <- shot_period[shot_period$shot_dist > 0, ]
+
+shot_period <- shot_period[shot_period$shot_dist <= 1.5 * IQR(shot_period$shot_dist), ]
+
+par(mfrow = c(1, 5))
+
+for (i in 1:5) {
+  subset <- shot_period[shot_period$period == i, ]
+  boxplot(subset$shot_dist,
+        main = paste("Period", i),
+        ylab = "Shot Distance (ft)")
+  print(mean(subset$shot_dist))
+}
+
+par(mfrow = c(1,1))
 ```
 
 ### Cleaning the Secondary Data Set / Extracting Information
