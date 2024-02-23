@@ -65,13 +65,6 @@ pbp <- merge(pbp, game, by = "game_id", all.x=TRUE)
 head(pbp)
 ```
 
-### Primary Data Summary
-
-```{r echo=FALSE, include=FALSE}
-summary(pbp)
-str(pbp)
-```
-
 #### Extracting Shot Distances
 
 One of the data points we are extracting is the jumpshot distance for made shots. In doing so, we can analyze average shot distance over time, find the make percentage per jumpshot distance, and analyze what the best jumpshot is.
@@ -199,13 +192,6 @@ player_stats
 
 player_stats["missed_shots"] <- player_stats$FGA - player_stats$FGM
 head(player_stats)
-```
-
-### Secondary Data Summary
-
-```{r echo=FALSE, include=FALSE}
-summary(player_stats)
-str(player_stats)
 ```
 
 ### Model creation
