@@ -30,7 +30,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Cleaning the Primary Data Set / Extracting Information
 
-A majority of our stats and information in the play-by-play data set come in the form of strings in description columns. Therefore, we need to extract this information, with the help of regex's and subsetting.
+Our play-by-play data table has 13 million rows and 34 columns. In cleaning our data, we dropped a few columns that we didn’t have use for, such as the “video_available_flag” column. In addition, we used REGEX to extract information from the “description” columns. In doing so, we were able to get new columns like jumpsuit distance. 
 
 ```{r echo=FALSE, include=FALSE}
 library(data.table)
