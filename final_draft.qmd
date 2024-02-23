@@ -1,5 +1,5 @@
 ---
-title: "Analyzing NBA Data Draft 1"
+title: "Analyzing NBA Data Draft 2"
 author: "Gavin Daves, Grant Thompson, Evan Brown, Seyaul Kim"
 date: 'February 16, 2024'
 format:
@@ -615,7 +615,7 @@ This plots players "Adjusted Player Rating" to minutes played, giving us a visua
 
 In NBA dialogue, there has been a recurring theme that "the skill in the nba is higher than it has ever been." We wanted to start to unpack this qualitative observation with some quantitative values. To do so, we utilized the "Adjusted Player Rating" stat, and plotted the densities by position in the draft. In the NBA, a "lotter pick" refers to the first 14 picks. A late first round pick is a first round pick that occurs after the lottery. In this graph, we wanted to explore the different skill levels across positions in the draft, and explore how these skill levels have changed over time.
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE, include=FALSE}
 library(ggplot2)
 
 # Assuming you have a data frame named player_stats_regular_season with columns: Season, Adjusted_player_rating, and Draft_pick
@@ -666,8 +666,13 @@ ggplot(filtered_data[filtered_data$Season %in% selected_years, ], aes(x = Adjust
 We can see quite a few interesting patterns in this plot. As predicted, the lottery picks consist of more "top players" (players with high adjusted player ratings) than any other draft position. In addition, we can see that the late first round and second round are rather similar in density of player rating. This trend breaks down in 2019, where we can see many more second round picks at a player rating of 4-8 than the late first round, as well as many more players with a player rating of 10-12. Over the years, we can see the curves shift right, towards more talented players. For example, any draft category in 2019 has significantly more players in the 10-12 player rating range than any previous draft category. This may imply that NBA teams have improved at draft prospect analysis and drafting. However, we can also notice that the skill of undrafted players has always hovered around a 4-8 player rating. But, in 2019, there is a noticeable spike in players with a rating above 8. This may imply that the skill of NBA prospects in general has increased over time, supporting the qualitative observations mentioned previously.
 
 ## Change in Average Shot Distances Over Time
+This plot shots the change in average 2-point shot distance in ten year intervals.
+It has lines connecting the shot distance for 2003 and for 2013 for every
+NBA team, and lines connecting the shot distance for 2013 and 2023. It
+aims to visualize the shooting trends of the league and if there is any
+significant changes over the years.
 
-```{r}
+```{r, echo=FALSE, include=FALSE}
 library(data.table)
 library(dplyr)
 library(ggplot2)
@@ -712,7 +717,15 @@ ggplot(data = avgs) +
                                 "2023" = "darkblue",
                                 "2003-2013" = "red",
                                 "2013-2023" = "blue"), name = "Years") +
-    labs(color = "Years", x = "Average Shot Distance", y = "NBA Team",
-       title = "Change in Average Shot Distances Over Time") +
+    labs(color = "Years", x = "Average 2-Point Shot Distance", y = "NBA Team",
+       title = "Changes in NBA Team's Average 2-Point Shot Distances") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
+As we can see, there is a significant decrease in average shot distance over
+both intervals for almost every team. This likely ties to players starting
+to value layups much more than mid-range 2 point shots. Players took
+2-point shots from over 12 feet away on average, but now players take 2-point
+shots from much less than 7 feet away.
+This is very telling, as we can see how the offensive mentality of players
+has significantly changed over the years, as they have become much more
+analytical in their approach.
