@@ -1,7 +1,7 @@
 ---
 title: "Analyzing NBA Data Draft 2"
 author: "Gavin Daves, Grant Thompson, Evan Brown, Seyaul Kim"
-date: 'February 16, 2024'
+date: 'February 22, 2024'
 format:
   pdf: default
   html: default
@@ -19,7 +19,7 @@ The National Basketball Association (NBA) has been in commission since 1946, and
 
 We are looking at how the NBA and the game of basketball has developed over time. To start, we analyzed the frequency of the three point shot, and the shooting skill of players in general. We wanted to find statistical evidence that supports the current trend of three pointers and skilled big-men.
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE}
 ## The following line is an overall configuration
 ## asking that the R code is displayed.
 ## Set to FALSE to avoid showing the code by default
@@ -28,83 +28,26 @@ We are looking at how the NBA and the game of basketball has developed over time
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Cleaning the Primary Data Set / Extracting Information
-
-Our play-by-play data table has 13 million rows and 34 columns. In cleaning our data, we dropped a few columns that we didn’t have use for, such as the “video_available_flag” column. In addition, we used REGEX to extract information from the “description” columns. In doing so, we were able to get new columns like jumpsuit distance. 
-
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE, include=FALSE}
 library(data.table)
 library(dplyr)
-
-# reads in play-by-play data
-pbp <- fread("play_by_play.csv")
-
-# reads in game-by-game data
-game <- fread("game.csv")
-
-# Changes the dates to just their years
-game$game_date <- as.integer((format(game$game_date, "%Y")))
-game <- game[, c("game_id", "game_date")]
-
-# Removes unnecessary columns
-pbp[, c("wctimestring", "player1_team_city", "player1_team_nickname", "person1type", "player2_team_city", "player2_team_nickname", "person2type", "player3_team_city", "player3_team_nickname", "person3type", "video_available_flag")] <- NULL
-
-# Ensures all vital columns are not empty/NA
-no_missing <- complete.cases(pbp$"game_id", pbp$"eventnum", pbp$"eventmsgtype", pbp$"eventmsgactiontype",
-                             pbp$"period", pbp$"wctimestring", pbp$"pctimestring", pbp$"score")
-pbp <- pbp[no_missing, ]
-
-# Clears up memory space
-rm(no_missing)
-
-# Removes duplicate rows
-pbp <- unique(pbp)
-
-# Merge with game-by-game data to get year information for each event (row)
-pbp <- merge(pbp, game, by = "game_id", all.x=TRUE)
-head(pbp)
+library(ggplot2)
+library(tidyr)
+library(ggalt)
 ```
 
-#### Extracting Shot Distances
+### Cleaning the Primary Data Set / Extracting Information
 
-One of the data points we are extracting is the jumpshot distance for made shots. In doing so, we can analyze average shot distance over time, find the make percentage per jumpshot distance, and analyze what the best jumpshot is.
+Our play-by-play data table has 13 million rows and 34 columns. In cleaning our data, we dropped a few columns that we didn’t have use for, such as the “video_available_flag” column. In addition, we used REGEX to extract information from the “description” columns. In doing so, we were able to get new columns like jumpsuit distance.
 
-```{r echo=FALSE, include=FALSE}
-# parses descriptions to get shot distance
-dist <- function(str, pattern = "\\b(\\d+)'") {
-  pos <- regexpr(pattern, str)
-  if (pos[1] <= 0){
-    return(0)
-  }
-  sub <- regmatches(str, pos)
-  num <- as.integer(substring(sub, 1, nchar(sub)-1))
-  return (num)
-}
+### Average Shot Distances By Year
 
-# initialize the column
-pbp$shot_dist <- 0
+Trends and play styles change constantly in the NBA as different teams try different strategies to win games. This leads to a greater focus on different parts of the game, from speed of play to 3pt shots. This graph analyses how far from the basket on average players were attempting shots every year.
 
-# Runs the parser on each row, parsing different columns depending on what is empty or not
-pbp <- pbp %>%
-  mutate(
-    shot_dist = apply(pbp[, c("homedescription", "visitordescription")], 1, function(row) {
-      dist_value <- dist(row["homedescription"])
-      if (is.na(dist_value) || dist_value <= 0) {
-        dist_value <- dist(row["visitordescription"])
-      }
-      return(dist_value)
-    })
-  )
-```
-
-#### Calculating Average Shot Distance by Year
-
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 # Graph specific
-shot_only <- pbp[, c("game_date", "shot_dist")]
-shot_only <- shot_only[shot_only$shot_dist > 0, ]
-shot_only2 <- fread("shot_dist.csv")
-
+shot_only <- fread("shot_dist.csv")
+shot_only <- shot_only[, c("game_date", "shot_dist")]
 # Groups by year and find average shot distance for each year
 shot_only$game_date <- as.factor(shot_only$game_date)
 
@@ -119,11 +62,7 @@ for (i in 1:length(levels(shot_only$game_date))) {
 }
 ```
 
-### Average Shot Distances By Year
-
-Trends and play styles change constantly in the NBA as different teams try different strategies to win games. This leads to a greater focus on different parts of the game, from speed of play to 3pt shots. This graph analyses how far from the basket on average players were attempting shots every year.
-
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 # Plots as a line graph
 plot(avg_dist$game_date, avg_dist$avg_shot_dist,
      type="l", xlab="Year", ylab="Average Shot Distance",
@@ -149,10 +88,10 @@ At the beginning of this revolution, it is possible that players realized that 2
 
 Next, we wanted to look at how basketball develops within the span of a single game. In doing so, we wanted to look at the average shot distance by quarter. We can use this visualization to examine how the state of the game determines a player/team's shot choice.
 
-```{r echo=FALSE, include=FALSE}
-shot_period <- pbp[, c("period", "shot_dist")]
+```{r, echo=FALSE}
+shot_period <- fread("shot_dist.csv")
+shot_period <- shot_period[, c("period", "shot_dist")]
 shot_period <- shot_period[order(shot_period$period), ]
-shot_period <- shot_period[shot_period$shot_dist > 0, ]
 
 shot_period <- shot_period[shot_period$shot_dist <= 1.5 * IQR(shot_period$shot_dist), ]
 
@@ -177,7 +116,7 @@ Since the time remaining in the game might affect where players shoot from, we t
 
 Here, we are making the data a bit more suitable for analysis by dropping unnecessesary/unnapplicable rows (for instance, we don't need International league stats, as we are only focused on the NBA). We are also adding columns that are combinations of operations on the other columns for ease of use later in our data analysis (ex. PTS / GP = PPG).
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 player_stats <- read.csv("player_stats.csv")
 player_stats <- player_stats[player_stats$Stage != "International", ]
 player_stats$FieldGoalPercentage <- player_stats$FGM / player_stats$FGA * 100
@@ -188,17 +127,15 @@ player_stats$Season <- substring(player_stats$Season, 1,4)
 
 player_stats["MPG"] <- player_stats$MIN/player_stats$GP
 player_stats["PPG"] <- player_stats$PTS/player_stats$GP
-player_stats
 
 player_stats["missed_shots"] <- player_stats$FGA - player_stats$FGM
-head(player_stats)
 ```
 
 ### Model creation
 
 We will create subsets of the data that correspond to season stats for 199, 2004, 2009, 2014, and 2019 to analyze how certain aspects of the NBA have changed over time.
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 
 player_stats_99 <- subset(player_stats, Season == "1999")
 player_stats_04 <- subset(player_stats, Season == "2004")
@@ -212,7 +149,7 @@ player_stats_19 <- subset(player_stats, Season == "2019")
 
 Our group found that player minutes vs. player points from the 1999 season seemed to have a positive correlation that was indicative of a linear relationship. We were interested in finding if this was the case for other seasons as well, so we decided to create models for the 1999, 2004, 2009, 2014, and 2019 seasons and plot their line of best fit to assess the possible linear relationships. After, we will plot all of the lines of best fit together to see how the lines vary over time.
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 
 model_99 <- lm(player_stats_99$PPG ~ player_stats_99$MPG)
 model_04 <- lm(player_stats_04$PPG ~ player_stats_04$MPG)
@@ -260,7 +197,7 @@ As we can see from the plots with their line of best fit, each year has a positi
 
 Our group was interested to see how the heights of NBA players have changed (or not) over time. So, we decided to create histograms, all with the same limits 160 centimeters is considered very short for an NBA player, and 230 centimeters is considered very tall).
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 
 hist(player_stats_99$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 1999 Season")
 hist(player_stats_04$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2004 Season")
@@ -276,7 +213,7 @@ From the data, we can see that from the 1999 to 2019, seasons the most common ra
 
 Our group was interested in seeing the trends of shots missed to shots made in a season over time. We decided to create a pie chart to visualize the proportion of the 1999, 2004, 2009, 2014, and 2019 seasons.
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 missed_made_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE), sum(player_stats_99$FGM, na.rm = TRUE))
 
 percentages_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE)/(sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)),sum(player_stats_99$FGM, na.rm = TRUE)/ (sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)))
@@ -323,7 +260,7 @@ From the pie charts, we can see that shot accuracy has stayed relatively constan
 
 In recent years, the NBA has seen a historic rise in the three point shot. Teams are relying on it more than ever. At the same time, the NBA has placed a focus on the drafting and development of skilled big-men. Gone are the days of the back-to-the-basket big, who uses their pure size and strength to win down low in the post. Players like Nikola Jokic, Victor Wembanyama, and Karl-Anthony Towns are known for their ability to space the floor and hit the three point shot. We sought out to analyze this trend, to see if the data would back up our qualitative observations.
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 # Convert height_cm to numeric
 player_stats$height_cm <- as.numeric(player_stats$height_cm)
 
@@ -356,9 +293,7 @@ We chose to go with the height 6'8" as it is the average height for a power forw
 This plot shows the density of all shot distances in the offensive half. It focuses on comparing shots before and after 2010, when the supposed shooting "revolution" took place, as was discussed earlier. With this, we can see at what distance shots are most frequently taken at\
 and what trends might come with that. It also displays the distance of the 3-point line in red.
 
-```{r echo=FALSE, include=FALSE}
-library(data.table)
-library(ggplot2)
+```{r, echo=FALSE}
 shots <- fread("shot_dist.csv")
 shots <- shots[, c("game_date", "shot_dist", "player1_team_abbreviation")]
 shots <- shots[shot_dist <= 47]
@@ -379,7 +314,7 @@ ggplot(data = shots) +
         axis.ticks.x = element_blank(), 
         plot.title = element_text(hjust = 0.5)) + 
   facet_wrap(~pivot, scales = "free_y") + 
-  annotate("text", x = 1.4, y = 21, label = "3pt Line", color = "black")
+  annotate("text", x = 1.375, y = 21, label = "3pt Line", color = "black", size=3.5)
 ```
 
 This plot further reinforces the earlier idea that the shooting "revolution" in 2010 truly did change where players took shots from. As we can see in the plot, a significant proportion of shots were taken from 2-point mid-distance. After this revolution though, we can see that the proportion of shots taken from this distance significantly dropped, with a heavy increase in layups and a slight increase in longer distance 3 point shots. Players started to realize that taking a shot from mid-distance 2-point range didn't have much value, and took the ball towards the net or moved to 3-point range much more often.
@@ -388,9 +323,7 @@ This plot further reinforces the earlier idea that the shooting "revolution" in 
 
 Seeing how talented NBA players are naturally raises the question of who the best player is. This can be approximated by measuring the number of points a player makes. We aggregated the points each player made per season to see if we could see any trends regarding who the top scorers were.
 
-```{r echo=FALSE, include=FALSE}
-library(ggplot2)
-library(data.table)
+```{r, echo=FALSE}
 shots_data <- fread("shot_dist.csv")
 shots_data[, score := as.character(score)]
 shots_data$scoremargin <- as.numeric(gsub("TIE", "0", shots_data$scoremargin))
@@ -467,7 +400,7 @@ for(year in years_of_interest) {
       labs(title = paste("Top Shooters in", year), x = "Player", y = "Number of Shots Made") +
       scale_fill_manual(values = c("2-pointer" = "blue", "3-pointer" = "green")) +
       guides(fill = guide_legend(title = "Shot Type"))
-    
+    print(p)
 }
 ```
 
@@ -477,7 +410,7 @@ In the above R script, the top 10 scorers in the 3 most interesting years in our
 
 A growing trend in the NBA is their global outreach programs. In doing so, they have spread the game of basketball across the world, inspiring young athletes in many countries. In recent years, we have seen foreign NBA players like Nikola Jokic and Giannis Antetokounmpo dominate the league. We wanted to explore this trend, and provide evidence for this phenomenon of an increasing foreign presence in the NBA.
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 # Function to keep only the first nationality
 keep_first_nationality <- function(df, nationality_col) {
   # Split the nationality column by ' / ' and only keep the first element
@@ -492,7 +425,6 @@ player_stats <- keep_first_nationality(player_stats, "nationality")
 # Filtering for specific years
 selected_years <- c(1999, 2004, 2009, 2014, 2019)
 player_stats_99_04_09_14_19 <- player_stats[player_stats$Season %in% selected_years,]
-player_stats_99_04_09_14_19
 
 nationalities_of_interest <- c("Nigeria", "Canada", "France", "Serbia", "Australia")
 
@@ -530,7 +462,7 @@ The heat map plots the number of players from Australia, Canada, France, Nigeria
 
 We decided to use a modified version of the PER (Player Efficiency Rating) to assign numerical values to player's individual seasons. This is calculated by the sum of their points, assists, rebounds, steals, blocks, made field goals, and made free throws. We then subtract field goal attempts, free throw attempts, and turnovers. We then divide this by (minutes \* season pace \* (15 / season efficiency)). Season pace is defined by the average number of possessions a team gets in 48 minutes. Season efficiency is defined by the average points scored per 100 possessions.
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 # Assuming the League Pace Factor for all seasons is a constant value (e.g., 100)
 constant_pace_factor <- c(93.1, 91.3,90.7,91.0, 90.1, 90.9, 90.5, 91.9, 92.4,91.7, 92.7, 92.1, 91.3, 92, 93.9, 93.9, 95.8, 96.4, 97.3, 100, 100.3)
 adjustment_factor <- 15
@@ -563,17 +495,11 @@ calculate_PER <- function(player) {
 }
 
 player_stats_regular_season$Adjusted_player_rating <- apply(player_stats_regular_season, 1, calculate_PER)
-
-player_stats_regular_season <- subset(player_stats_regular_season, select = -c(PER))
 ```
 
-```{r echo=FALSE, include=FALSE}
+```{r, echo=FALSE}
 # Install ggalt package if not installed
 #install.packages("ggalt")
-
-# Load required libraries
-library(ggplot2)
-library(ggalt)
 
 # Assuming player_stats_regular_season is your original dataset
 # Replace column names accordingly based on your actual dataset
@@ -614,9 +540,11 @@ This plots players "Adjusted Player Rating" to minutes played, giving us a visua
 ## Density Plot of Adjusted Player Rating By Draft Pick
 
 In NBA dialogue, there has been a recurring theme that "the skill in the nba is higher than it has ever been." We wanted to start to unpack this qualitative observation with some quantitative values. To do so, we utilized the "Adjusted Player Rating" stat, and plotted the densities by position in the draft. In the NBA, a "lotter pick" refers to the first 14 picks. A late first round pick is a first round pick that occurs after the lottery. In this graph, we wanted to explore the different skill levels across positions in the draft, and explore how these skill levels have changed over time.
+```{r, echo=FALSE}
+player_stats_regular_season$draft_pick <- sprintf("%d.%02d", player_stats_regular_season$draft_round, player_stats_regular_season$draft_pick)
 
-```{r, echo=FALSE, include=FALSE}
-library(ggplot2)
+# Drop the original "draft_round" column
+player_stats_regular_season <- subset(player_stats_regular_season, select = -c(draft_round))
 
 # Assuming you have a data frame named player_stats_regular_season with columns: Season, Adjusted_player_rating, and Draft_pick
 
@@ -672,12 +600,7 @@ NBA team, and lines connecting the shot distance for 2013 and 2023. It
 aims to visualize the shooting trends of the league and if there is any
 significant changes over the years.
 
-```{r, echo=FALSE, include=FALSE}
-library(data.table)
-library(dplyr)
-library(ggplot2)
-library(tidyr)
-
+```{r, echo=FALSE}
 shots <- fread("shot_dist.csv")
 shots <- shots[,c("game_date", "shot_dist", "player1_team_abbreviation")]
 shots <- shots[shots$shot_dist < 23]
