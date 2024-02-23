@@ -1,8 +1,5 @@
-In the format of the project (use as a starting point the qmd for 405 or Rnw for 605 provided in Module 1, respecting the YAML in terms of spacing and font type) submit a pdf containing:
-
-1. The running title of your project
-2. The members of the group (authors)
-3. An introduction to your project and dataset,
-4. Six professional looking plots done exclusively with base graphics functions (no ggplot, that will be used in the following draft) that feature the main data of your project (the one that has been approved by the Instructor). Make sure that each of the plots has the corresponding introduction and interpretation (you should not expect that the reader is the one interpreting your work, of which you are the expert). Keep in mind that all six plots need to be of a different kind (for example, you cannot produce two histograms).
-5. Some kind of starting statistical modeling (such as, but not limited to, a regression analysis). Interpret your results.
-
+Create six high quality plots using ggplot2 (exclusively). The plots have to be of different kind, (also different types regarding the ones done with base graphics). This report should include 12 plots (the ones in draft 1 and the six new).
+Please include narrative for each of them, introducing the plots and interpreting what they display.
+Take the opportunity to start adding more material to your report. Also, you could improve (or replace) older plots if possible (or if you got feedback on them).
+Submit your source file (qmd or Rnw according to your case) together with the pdf file.
+As drafts evolve, apply feedback received for prior project report drafts, aiming at more professional drafts.
