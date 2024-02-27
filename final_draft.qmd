@@ -202,12 +202,16 @@ As we can see from the plots with their line of best fit, each year has a positi
 Our group was interested to see how the heights of NBA players have changed (or not) over time. So, we decided to create histograms, all with the same limits 160 centimeters is considered very short for an NBA player, and 230 centimeters is considered very tall).
 
 ```{r, echo=FALSE}
+# Set common y-axis limits and number of breaks
+common_ylim <- c(0, 140)
+common_breaks <- 14
 
-hist(player_stats_99$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 1999 Season")
-hist(player_stats_04$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2004 Season")
-hist(player_stats_09$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2009 Season")
-hist(player_stats_14$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2014 Season")
-hist(player_stats_19$height_cm, breaks=8, xlim=c(160,230), xlab="Height (cm)", main="Heights of players in the 2019 Season")
+# Plot histograms with a common y-axis and number of breaks
+hist(player_stats_99$height_cm, breaks = common_breaks, xlim = c(160, 230), ylim = common_ylim, xlab = "Height (cm)", main = "Heights of players in the 1999 Season")
+hist(player_stats_04$height_cm, breaks = common_breaks, xlim = c(160, 230), ylim = common_ylim, xlab = "Height (cm)", main = "Heights of players in the 2004 Season")
+hist(player_stats_09$height_cm, breaks = common_breaks, xlim = c(160, 230), ylim = common_ylim, xlab = "Height (cm)", main = "Heights of players in the 2009 Season")
+hist(player_stats_14$height_cm, breaks = common_breaks, xlim = c(160, 230), ylim = common_ylim, xlab = "Height (cm)", main = "Heights of players in the 2014 Season")
+hist(player_stats_19$height_cm, breaks = common_breaks, xlim = c(160, 230), ylim = common_ylim, xlab = "Height (cm)", main = "Heights of players in the 2019 Season")
 
 ```
 
