@@ -1,0 +1,133 @@
+---
+title: "removed_graphs"
+format: pdf
+---
+
+### Shot Distance By Period
+
+Next, we wanted to look at how basketball develops within the span of a single game. In doing so, we wanted to look at the average shot distance by quarter. We can use this visualization to examine how the state of the game determines a player/team's shot choice.
+
+```{r, echo=FALSE}
+shot_period <- fread("shot_dist.csv")
+shot_period <- shot_period[, c("period", "shot_dist")]
+shot_period <- shot_period[order(shot_period$period), ]
+
+shot_period <- shot_period[shot_period$shot_dist <= 1.5 * IQR(shot_period$shot_dist), ]
+
+par(mfrow = c(1, 5))
+
+for (i in 1:5) {
+  subset <- shot_period[shot_period$period == i, ]
+  # Conditionally set the main argument
+  main_title <- ifelse(i == 5, "Overtime", paste("Quarter", i))
+  boxplot(subset$shot_dist,
+          main = main_title,
+          ylab = "Shot Distance (ft)")
+}
+
+
+par(mfrow = c(1,1))
+```
+
+Since the time remaining in the game might affect where players shoot from, we thought it would be appropriate to graph how players start to shoot based on which period of the game the game is in. The graph is a box and whiskers plot that analyses the distribution of where players shot from based on which of the 5 possible phases the game could be in.
+
+
+
+### Change in Average Shot Distances Over Time
+
+This plot shots the change in average 2-point shot distance in ten year intervals. It has lines connecting the shot distance for 2003 and for 2013 for every NBA team, and lines connecting the shot distance for 2013 and 2023. It aims to visualize the shooting trends of the league and if there is any significant changes over the years.
+
+```{r, echo=FALSE}
+# maybe just do 2005 to 2015 or smthn
+# don't know if this one is really needed
+
+
+shots <- fread("shot_dist.csv")
+shots <- shots[,c("game_date", "shot_dist", "player1_team_abbreviation")]
+shots <- shots[shots$shot_dist < 23]
+
+shots <- shots %>%
+    rename(team = player1_team_abbreviation)
+
+nba_teams <- c("ATL", "BKN", "BOS", "CHA", "CHI", "CLE", "DAL", "DEN", "DET",
+               "GSW", "HOU", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN",
+               "NOP", "NYK", "OKC", "ORL", "PHI", "PHX", "POR", "SAC", "SAS",
+               "TOR", "UTA", "WAS")
+
+shots <- shots[shots$team %in% nba_teams]
+
+avgs <- shots %>%
+  group_by(team, year = game_date) %>%
+  summarise(avg_shot_distance = mean(shot_dist, na.rm = TRUE)) %>%
+  pivot_wider(names_from = year, values_from = avg_shot_distance, names_prefix = "avg_dist_")
+
+unique_teams <- unique(avgs$team)
+avgs$team <- factor(avgs$team, levels=as.character(unique_teams))
+
+avgs <- avgs[complete.cases(avgs$avg_dist_2003, avgs$avg_dist_2013, avgs$avg_dist_2023), ]
+
+ggplot(data = avgs) +
+  aes(x = avg_dist_2003, xend = avg_dist_2023, y = team, yend = team, color = "Time Interval") +
+  geom_segment(aes(xend = avg_dist_2013, color = "2003-2013"),
+               position = position_nudge(y = -0.2), linewidth = .75,
+               show.legend = TRUE) +  # Line for 2003-2013
+  geom_segment(aes(x = avg_dist_2013, xend = avg_dist_2023, color = "2013-2023"),
+               position = position_nudge(y = 0.2), linewidth = .75,
+               show.legend = TRUE) +  # Line for 2013-2023
+  geom_point(aes(x = avg_dist_2013, color = "2013"), size = 3, shape = 16) +
+  geom_point(aes(x = avg_dist_2023, color = "2023"), size = 3, shape = 16) +
+  geom_point(aes(x = avg_dist_2003, color = "2003"), size = 3, shape = 16) +
+  scale_color_manual(values = c("2003" = "darkred", "2013" = "purple",
+                                "2023" = "darkblue",
+                                "2003-2013" = "red",
+                                "2013-2023" = "blue"), name = "Years") +
+    labs(color = "Years", x = "Average 2-Point Shot Distance", y = "NBA Team",
+       title = "Changes in NBA Team's Average 2-Point Shot Distances") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+As we can see, there is a significant decrease in average shot distance over both intervals for almost every team. This likely ties to players starting to value layups much more than mid-range 2 point shots. Players took 2-point shots from over 12 feet away on average, but now players take 2-point shots from much less than 7 feet away. This is very telling, as we can see how the offensive mentality of players has significantly changed over the years, as they have become much more analytical in their 
+
+
+
+
+```{r, echo=FALSE}
+missed_made_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE), sum(player_stats_99$FGM, na.rm = TRUE))
+
+percentages_99 <- c(sum(player_stats_99$missed_shots, na.rm = TRUE)/(sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)),sum(player_stats_99$FGM, na.rm = TRUE)/ (sum(player_stats_99$missed_shots, na.rm = TRUE)+sum(player_stats_99$FGM, na.rm = TRUE)))
+
+labels_99 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_99, 3), "%")
+pie(missed_made_99, main = "Shots Made to Shots Missed in 1999 Season", col = c('darkorchid1', 'thistle3'), labels = labels_99, radius = 1)
+
+
+missed_made_04 <- c(sum(player_stats_04$missed_shots, na.rm = TRUE), sum(player_stats_04$FGM, na.rm = TRUE))
+
+percentages_04 <- c(sum(player_stats_04$missed_shots, na.rm = TRUE)/(sum(player_stats_04$missed_shots, na.rm = TRUE)+sum(player_stats_04$FGM, na.rm = TRUE)),sum(player_stats_04$FGM, na.rm = TRUE)/ (sum(player_stats_04$missed_shots, na.rm = TRUE)+sum(player_stats_04$FGM, na.rm = TRUE)))
+
+labels_04 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_04, 3), "%")
+pie(missed_made_04, main = "Shots Made to Shots Missed in 2004 Season", col = c('darkorchid1', 'thistle3'), labels = labels_04, radius = 1)
+
+missed_made_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE), sum(player_stats_09$FGM, na.rm = TRUE))
+
+percentages_09 <- c(sum(player_stats_09$missed_shots, na.rm = TRUE)/(sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)),sum(player_stats_09$FGM, na.rm = TRUE)/ (sum(player_stats_09$missed_shots, na.rm = TRUE)+sum(player_stats_09$FGM, na.rm = TRUE)))
+
+labels_09 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_09, 3), "%")
+pie(missed_made_09, main = "Shots Made to Shots Missed in 2009 Season", col = c('darkorchid1', 'thistle3'), labels = labels_09, radius = 1)
+
+
+missed_made_14 <- c(sum(player_stats_14$missed_shots, na.rm = TRUE), sum(player_stats_14$FGM, na.rm = TRUE))
+
+percentages_14 <- c(sum(player_stats_14$missed_shots, na.rm = TRUE)/(sum(player_stats_14$missed_shots, na.rm = TRUE)+sum(player_stats_14$FGM, na.rm = TRUE)),sum(player_stats_14$FGM, na.rm = TRUE)/ (sum(player_stats_14$missed_shots, na.rm = TRUE)+sum(player_stats_14$FGM, na.rm = TRUE)))
+
+labels_14 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_14, 3), "%")
+pie(missed_made_14, main = "Shots Made to Shots Missed in 2014 Season", col = c('darkorchid1', 'thistle3'), labels = labels_14, radius = 1)
+
+
+missed_made_19 <- c(sum(player_stats_19$missed_shots, na.rm = TRUE), sum(player_stats_19$FGM, na.rm = TRUE))
+
+percentages_19 <- c(sum(player_stats_19$missed_shots, na.rm = TRUE)/(sum(player_stats_19$missed_shots, na.rm = TRUE)+sum(player_stats_19$FGM, na.rm = TRUE)),sum(player_stats_19$FGM, na.rm = TRUE)/ (sum(player_stats_19$missed_shots, na.rm = TRUE)+sum(player_stats_19$FGM, na.rm = TRUE)))
+
+labels_19 <- paste(c("Shots Missed:", "Shots Made:"), round(100*percentages_19, 3), "%")
+pie(missed_made_19, main = "Shots Made to Shots Missed in 2019 Season", col = c('darkorchid1', 'thistle3'), labels = labels_19, radius = 1)
+
+```
