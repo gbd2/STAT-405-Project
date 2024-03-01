@@ -13,11 +13,11 @@ toc: true                   # add table of contents at the beginning
 toc-depth: 2                # Only titles that start with # or ##
 ---
 
-## Analyzing how the Game of Basketball Developed Over Time
+# Analyzing how the Game of Basketball Developed Over Time
 
-The National Basketball Association (NBA) has been in commission since 1946, and has become one of the most well-known sports organizations in history. Over 65,000 games have been played since the birth of the league, and our group was able to find a dataset of play-by-play data from each of these games. Our dataset (see below) has notable columns such as play descriptions, score margins, players involved, and time remaining in the game. Ultimately, our group seeks to analyze many relationships including players (and their characteristics), teams, time, among other statistics.
+The National Basketball Association (NBA) has been in commission since 1946, and has become one of the most well-known sports organizations in history. Over 65,000 games have been played since the birth of the league, and we will be doing an analysis of play-by-play data from all of these games. For every event since the NBA's commission, this play-by-play data set has notable columns such as detailed play descriptions, score margins, involved players, and time remaining in the game.
 
-We are looking at how the NBA and the game of basketball has developed over time. To start, we analyzed the frequency of the three point shot, and the shooting skill of players in general. We wanted to find statistical evidence that supports the current trend of three pointers and skilled big-men.
+Ultimately, our group seeks to analyze, quantify, and visualize two major questions: 1. How has the play style of the NBA evolved throughout its existence? 2. Which players have excelled in the sport and stood above the rest? Throughout this paper, we will use the play-by-play data, a variety of statistics, from shot distances to nationality to adjusted player efficiency ratings, to aim to answer these questions.
 
 ```{r setup, echo=FALSE, include=FALSE}
 ## The following line is an overall configuration
@@ -28,21 +28,30 @@ We are looking at how the NBA and the game of basketball has developed over time
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r, echo=FALSE, include=FALSE}
+```{r, echo=FALSE, include=FALSE, warnings=FALSE}
+packages <- c("data.table", "dplyr", "ggplot2", "tidyr", "ggalt", "knitr")
+
+# Install missing packages
+new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
+if(length(new_packages) > 0) {
+  install.packages(new_packages)
+}
+
 library(data.table)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(ggalt)
+library(knitr)
 ```
 
 ### Cleaning the Primary Data Set / Extracting Information
 
-Our play-by-play data table has 13 million rows and 34 columns. In cleaning our data, we dropped a few columns that we didn't have use for, such as the "video_available_flag" column. In addition, we used REGEX to extract information from the "description" columns. In doing so, we were able to get new columns like jumpsuit distance.
+Our play-by-play data set has 13 million rows and 34 columns, with each row representing a different game event. In cleaning our data, we dropped a few columns that we didn't have use for, such as the "video_available_flag" column. In addition, we used REGEX to extract valuable information from the play description columns. In doing so, we were able to get new columns like shot distance.
 
 ### Cleaning the Secondary Data Set / Extracting Information
 
-Here, we are making the data a bit more suitable for analysis by dropping unnecessesary/unnapplicable rows (for instance, we don't need International league stats, as we are only focused on the NBA). We are also adding columns that are combinations of operations on the other columns for ease of use later in our data analysis (ex. PTS / GP = PPG).
+Here, we are making the data a bit more suitable for analysis by dropping unnecessary rows (for instance, we don't need international league stats, as we are only focused on the NBA). We are also adding columns that are based on other columns values for ease of use later in our analysis (ex. PTS / GP = PPG).
 
 ```{r, echo=FALSE}
 player_stats <- read.csv("player_stats.csv")
@@ -57,13 +66,11 @@ player_stats["MPG"] <- player_stats$MIN/player_stats$GP
 player_stats["PPG"] <- player_stats$PTS/player_stats$GP
 
 player_stats["missed_shots"] <- player_stats$FGA - player_stats$FGM
-```
 
-### Model creation
 
-We will create subsets of the data that correspond to season stats for 199, 2004, 2009, 2014, and 2019 to analyze how certain aspects of the NBA have changed over time.
 
-```{r, echo=FALSE}
+# Creating subsets of the data for different years to analyze how certain aspects
+# of the NBA have changed over time.
 
 player_stats_99 <- subset(player_stats, Season == "1999")
 player_stats_04 <- subset(player_stats, Season == "2004")
@@ -73,13 +80,17 @@ player_stats_19 <- subset(player_stats, Season == "2019")
 
 ```
 
+## Evolution of the NBA
+We will start by analyzing how the NBA has evolved since its creation. We will be analyzing and visualizing shot distance, points per game, adjusted player rating, and more to attempt to understand the league's evolution.
+
 ### Average Shot Distances By Year
 
-Trends and play styles change constantly in the NBA as different teams try different strategies to win games. This leads to a greater focus on different parts of the game, from speed of play to 3pt shots. This graph analyses how far from the basket on average players were attempting shots every year.
+Trends and play styles change constantly in the NBA as different players and teams use different strategies to win games. This leads to occasional 'revolutions' where people realize that different aspects of the sport, from speed of play to 3-point shots, are more important than others. This graph analyzes how far from the basket on average players were attempting shots every year to attempt to visualize any potential shooting revolutions.
 
 ```{r, echo=FALSE}
 # Graph specific
-shot_only <- fread("shot_dist.csv")
+# made separate data file after cleaning to speed up runtime
+shot_only <- fread("shot_dist.csv", verbose = FALSE)
 shot_only <- shot_only[, c("game_date", "shot_dist")]
 # Groups by year and find average shot distance for each year
 shot_only$game_date <- as.factor(shot_only$game_date)
@@ -113,18 +124,16 @@ labels_y <- ifelse(tick_marks_y %% 5 == 0, as.character(tick_marks_y), "")
 axis(2, at = tick_marks_y, labels = labels_y, tick = TRUE)
 ```
 
-We can see that the distance of shots increased up until around 2010, when they had a massive drop. This could be for a number of reasons, with one likely one being related to a play style revolution. It was around this time that teams realized how much more valuable 3pt shots were. Before this revolution, players often ignored 3pt shots to move a few feet closer. After this revolution, players either took a 3pt shot or moved twenty feet closer.
+We can see that the distance of shots increased up until around 2010, when they had a massive drop. This could be for a number of reasons, with one likely one being related to a play style revolution. It was around this time that teams realized how much more valuable 3-point shots were, and how much of a waste long distance 2-point shots (ten plus feet away from the basket) were. Stephen Curry is often accredited with leading this 'revolution', as he was one of the first to adopt this play style and excel with it. Before this revolution, players often ignored 3-point shots to move a few feet closer. After this revolution, players either took a 3pt shot or moved much closer to the basket.
 
-At the beginning of this revolution, it is possible that players realized that 2-point shots ten plus feet away from the basket were not worth it, leading to a complete disregard for these shots, even if they made sense, taking a lot of one or two foot shots instead. All things balance out though, as players likely took things to an extreme at the beginning, but started to move back to taking some long distance 2-point shots as time went on if the current state of the game warranted it, causing the average shot distance to start to rise again.
-
+At the beginning of this revolution, it is possible that players realized that long distance 2-point shots were not worth it, leading to a complete disregard for these shots, even when they were actually worth it. Players took mostly one or two foot shots instead. All things balance out though, as players started to move back to taking some long distance 2-point shots if they had to as time went on, but the focus was still noticeably on taking less long distance 2-point shots.
 
 ### Density Graph of All Shot Distances Prior to and After 2010
 
-This plot shows the density of all shot distances in the offensive half. It focuses on comparing shots before and after 2010, when the supposed shooting "revolution" took place, as was discussed earlier. With this, we can see at what distance shots are most frequently taken at\
-and what trends might come with that. It also displays the distance of the 3-point line in red.
+This plot shows the density of all shot distances in the offensive half. It focuses on comparing shots before and after 2010, when the supposed shooting 'revolution' took place, as was discussed earlier. With this, we can see at what distance shots are most frequently taken at and what trends might come with that. It also displays the distance of the 3-point line in red.
 
 ```{r, echo=FALSE}
-shots <- fread("shot_dist.csv")
+shots <- fread("shot_dist.csv", verbose = FALSE)
 shots <- shots[, c("game_date", "shot_dist", "player1_team_abbreviation")]
 shots <- shots[shot_dist <= 47]
 shots$distance_group <- cut(shots$shot_dist, 
@@ -147,7 +156,7 @@ ggplot(data = shots) +
   annotate("text", x = 1.375, y = 21, label = "3pt Line", color = "black", size=3.5)
 ```
 
-This plot further reinforces the earlier idea that the shooting "revolution" in 2010 truly did change where players took shots from. As we can see in the plot, a significant proportion of shots were taken from 2-point mid-distance. After this revolution though, we can see that the proportion of shots taken from this distance significantly dropped, with a heavy increase in layups and a slight increase in longer distance 3 point shots. Players started to realize that taking a shot from mid-distance 2-point range didn't have much value, and took the ball towards the net or moved to 3-point range much more often.
+This plot further reinforces the earlier idea that the shooting 'revolution' in 2010 truly did change where players took shots from. As we can see in the plot, a significant proportion of shots were taken from 2-point mid-distance. After this revolution though, we can see that the proportion of shots taken from this distance significantly dropped, with a heavy increase in layups and a slight increase in longer distance 3 point shots. Players started to realize that taking a shot from mid-distance 2-point range didn't have much value, and took the ball towards the net or moved to 3-point range much more often.
 
 ### Minutes per game vs Points per game using Linear Regression
 
@@ -291,6 +300,58 @@ grid()
 
 We chose to go with the height 6'8" as it is the average height for a power forward. In this plot, we are aiming to examine the number of power forwards and centers that shoot \>30% from the three point line. From our graph, we can see that from 1999-2014 there are about 40 NBA big-men who shoot at least 30% from three. In recent years, namely since 2016, this number has doubled, with a massive jump from the 2014 season to the 2016 season. This graph lines up with our qualitative observations, that the NBA has observed a sudden and big jump in skilled big-men with shooting abilities.
 
+### Heat Map of NBA Players By Nationality and Season
+
+A growing trend in the NBA is their global outreach programs. In doing so, they have spread the game of basketball across the world, inspiring young athletes in many countries. In recent years, we have seen foreign NBA players like Nikola Jokic and Giannis Antetokounmpo dominate the league. We wanted to explore this trend, and provide evidence for this phenomenon of an increasing foreign presence in the NBA.
+
+```{r, echo=FALSE}
+# Function to keep only the first nationality
+keep_first_nationality <- function(df, nationality_col) {
+  # Split the nationality column by ' / ' and only keep the first element
+  df[[nationality_col]] <- sapply(strsplit(df[[nationality_col]], " / "), `[`, 1)
+  return (df)
+}
+
+# Apply the function to the nba_data dataset
+player_stats <- keep_first_nationality(player_stats, "nationality")
+
+
+# Filtering for specific years
+selected_years <- c(1999, 2004, 2009, 2014, 2019)
+player_stats_99_04_09_14_19 <- player_stats[player_stats$Season %in% selected_years,]
+
+nationalities_of_interest <- c("Nigeria", "Canada", "France", "Serbia", "Australia")
+
+# This creates a logical vector indicating rows where the Nationality column matches any nationality of interest
+matches_nationality <- sapply(nationalities_of_interest, function(nat) grepl(nat, player_stats_99_04_09_14_19$nationality, ignore.case = TRUE))
+
+# Reduce the matches_nationality matrix to a single logical vector where TRUE indicates a row matched any nationality
+rows_to_keep <- apply(matches_nationality, 1, any)
+
+# Filter nba_data_filtered based on rows_to_keep
+nba_data_filtered <- player_stats_99_04_09_14_19[rows_to_keep,]
+
+
+nba_data_counts <- nba_data_filtered %>%
+  group_by(nationality, Season) %>%
+  summarise(PlayerCount = n(), .groups = 'drop')
+
+
+
+ggplot(nba_data_counts, aes(x = nationality, y = Season, fill = PlayerCount)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = c('cyan1', 'cadetblue2', 'lightblue', 'blue', 'darkblue'), limits = c(0, 20)) +
+  facet_wrap(~ Season, ncol = 1, scales = "free_y") + 
+  labs(title = "NBA Players by Nationality and Season",
+       x = "Nationality",
+       y = "Season") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_discrete(breaks = 0) 
+```
+
+The heat map plots the number of players from Australia, Canada, France, Nigeria, and Serbia in the 1999, 2004, 2009, 2014, and 2019 seasons. We chose these countries as they represent the most foreign NBA players in the league today. Based on the results from the heat map, we can see that even in the past 2 decades, there were not many foreign players that joined the NBA. However, as we get closer to the current decade, it becomes obvious that the influence of the NBA has reached outside of the US because more people from all included countries in the graph have a higher density of people that join the NBA. This aligns with the qualitative observation that the NBA is becoming an increasingly popular sport that reaches well outside the confines of the US.
+
 ### Stacked Barchart of 2-Point and 3-Point Shots Made By Top 10 NBA Players Each Year
 
 Seeing how talented NBA players are naturally raises the question of who the best player is. This can be approximated by measuring the number of points a player makes. We aggregated the points each player made per season to see if we could see any trends regarding who the top scorers were.
@@ -378,61 +439,48 @@ for(year in years_of_interest) {
 
 In the above R script, the top 10 scorers in the 3 most interesting years in our current decade, past decade, and past 2 decades are represented in a stacked bar plot. The notion of 'most interesting' was determined by the years with the most number of points made. The number of 2 pointers and 3 pointers that the players made are the y-axis and the top 10 players ranked by the number of points scored is the x-axis. We chose to only show the top 10 players since modelling every player would obfuscate the details of the graph too much. From the data, we can see the players that scored the most points, what proportion of those shots were 2 pointers versus 3 pointers, and how the player did compared to other top scorers. A specific observation that we can make is LeBron James' dominance in the point scoring scene, which aligns with the qualitative observation that we can make regarding LeBron's status as one of the most prolific, if not the most prolific, scorers of all time.
 
-### Heat Map of NBA Players By Nationality and Season
+### Adjusted Player Rating
 
-A growing trend in the NBA is their global outreach programs. In doing so, they have spread the game of basketball across the world, inspiring young athletes in many countries. In recent years, we have seen foreign NBA players like Nikola Jokic and Giannis Antetokounmpo dominate the league. We wanted to explore this trend, and provide evidence for this phenomenon of an increasing foreign presence in the NBA.
+We decided to use a modified version of the PER (Player Efficiency Rating) to assign numerical values to player's individual seasons. This is calculated by the sum of their points, assists, rebounds, steals, blocks, made field goals, and made free throws. We then subtract field goal attempts, free throw attempts, and turnovers. We then divide this by (minutes \* season pace \* (15 / season efficiency)). Season pace is defined by the average number of possessions a team gets in 48 minutes. Season efficiency is defined by the average points scored per 100 possessions.
 
 ```{r, echo=FALSE}
-# Function to keep only the first nationality
-keep_first_nationality <- function(df, nationality_col) {
-  # Split the nationality column by ' / ' and only keep the first element
-  df[[nationality_col]] <- sapply(strsplit(df[[nationality_col]], " / "), `[`, 1)
-  return (df)
+# Assuming the League Pace Factor for all seasons is a constant value (e.g., 100)
+constant_pace_factor <- c(93.1, 91.3,90.7,91.0, 90.1, 90.9, 90.5, 91.9, 92.4,91.7, 92.7, 92.1, 91.3, 92, 93.9, 93.9, 95.8, 96.4, 97.3, 100, 100.3)
+adjustment_factor <- 15
+league_efficiency <- c(104.1,103, 104.5,103.6, 102.9, 106.1, 106.2,  106.5, 107.5,108.3,107.6, 107.3, 104.6,105.8,106.6, 105.6,106.4, 108.8, 108.6, 110.4,110.6)
+
+# Assuming player_stats is your data table
+player_stats$Season_numeric <- as.integer(substr(player_stats$Season, 1, 4)) - 1998
+
+# Filter data for Regular Season
+player_stats_regular_season <- player_stats[player_stats$Stage == "Regular_Season", ]
+
+calculate_PER <- function(player) {
+  season_index <- player[["Season_numeric"]]
+
+  pace <- constant_pace_factor[as.integer(season_index)]
+  efficiency <- league_efficiency[as.integer(season_index)]
+
+  # Convert relevant columns to numeric
+  numeric_columns <- c("PTS", "AST", "REB", "STL", "BLK", "FGA", "FGM", "GP", "MIN", "FTM", "FTA", "TOV")
+  player[numeric_columns] <- lapply(player[numeric_columns], as.numeric)
+
+  # PER calculation
+  per <- ((player[["PTS"]] + player[["AST"]] + player[["REB"]] + player[["STL"]] + player[["BLK"]] - player[["FGA"]] + player[["FGM"]] - player[["FTA"]] + player[["FTM"]] - player[["TOV"]]) / player[["MIN"]] * pace * (15 / efficiency))
+
+  aper <- per * (constant_pace_factor[21] / pace) * (league_efficiency[21] / efficiency)
+
+  
+
+  return(aper)
 }
 
-# Apply the function to the nba_data dataset
-player_stats <- keep_first_nationality(player_stats, "nationality")
-
-
-# Filtering for specific years
-selected_years <- c(1999, 2004, 2009, 2014, 2019)
-player_stats_99_04_09_14_19 <- player_stats[player_stats$Season %in% selected_years,]
-
-nationalities_of_interest <- c("Nigeria", "Canada", "France", "Serbia", "Australia")
-
-# This creates a logical vector indicating rows where the Nationality column matches any nationality of interest
-matches_nationality <- sapply(nationalities_of_interest, function(nat) grepl(nat, player_stats_99_04_09_14_19$nationality, ignore.case = TRUE))
-
-# Reduce the matches_nationality matrix to a single logical vector where TRUE indicates a row matched any nationality
-rows_to_keep <- apply(matches_nationality, 1, any)
-
-# Filter nba_data_filtered based on rows_to_keep
-nba_data_filtered <- player_stats_99_04_09_14_19[rows_to_keep,]
-
-
-nba_data_counts <- nba_data_filtered %>%
-  group_by(nationality, Season) %>%
-  summarise(PlayerCount = n(), .groups = 'drop')
-
-
-
-ggplot(nba_data_counts, aes(x = nationality, y = Season, fill = PlayerCount)) +
-  geom_tile() +
-  scale_fill_gradientn(colors = c('cyan1', 'cadetblue2', 'lightblue', 'blue', 'darkblue'), limits = c(0, 20)) +
-  facet_wrap(~ Season, ncol = 1, scales = "free_y") + 
-  labs(title = "NBA Players by Nationality and Season",
-       x = "Nationality",
-       y = "Season") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_y_discrete(breaks = 0) 
+player_stats_regular_season$Adjusted_player_rating <- apply(player_stats_regular_season, 1, calculate_PER)
 ```
-
-The heat map plots the number of players from Australia, Canada, France, Nigeria, and Serbia in the 1999, 2004, 2009, 2014, and 2019 seasons. We chose these countries as they represent the most foreign NBA players in the league today. Based on the results from the heat map, we can see that even in the past 2 decades, there were not many foreign players that joined the NBA. However, as we get closer to the current decade, it becomes obvious that the influence of the NBA has reached outside of the US because more people from all included countries in the graph have a higher density of people that join the NBA. This aligns with the qualitative observation that the NBA is becoming an increasingly popular sport that reaches well outside the confines of the US.
 
 ### Density Plot of Adjusted Player Rating By Draft Pick
 
-In NBA dialogue, there has been a recurring theme that "the skill in the nba is higher than it has ever been." We wanted to start to unpack this qualitative observation with some quantitative values. To do so, we utilized the "Adjusted Player Rating" stat, and plotted the densities by position in the draft. In the NBA, a "lotter pick" refers to the first 14 picks. A late first round pick is a first round pick that occurs after the lottery. In this graph, we wanted to explore the different skill levels across positions in the draft, and explore how these skill levels have changed over time.
+In NBA dialogue, there has been a recurring theme that "the skill in the NBA is higher than it has ever been." We wanted to start to unpack this qualitative observation with some quantitative values. To do so, we utilized the "Adjusted Player Rating" stat, and plotted the densities by position in the draft. In the NBA, a "lottery pick" refers to the first 14 picks. A late first round pick is a first round pick that occurs after the lottery. In this graph, we wanted to explore the different skill levels across positions in the draft, and explore how these skill levels have changed over time.
 
 ```{r, echo=FALSE}
 player_stats_regular_season$draft_pick <- sprintf("%d.%02d", player_stats_regular_season$draft_round, player_stats_regular_season$draft_pick)
@@ -443,7 +491,9 @@ player_stats_regular_season <- subset(player_stats_regular_season, select = -c(d
 # Assuming you have a data frame named player_stats_regular_season with columns: Season, Adjusted_player_rating, and Draft_pick
 
 # Convert Draft_pick to numeric for comparison
-player_stats_regular_season$Draft_numeric <- as.numeric(player_stats_regular_season$draft_pick)
+suppressWarnings(
+  player_stats_regular_season$Draft_numeric <- as.numeric(player_stats_regular_season$draft_pick)
+)
 
 # Create draft categories based on the specified ranges
 player_stats_regular_season$Draft_category[player_stats_regular_season$Draft_numeric >= 1.01 & player_stats_regular_season$Draft_numeric <= 1.14] <- "Lottery Pick"
@@ -487,45 +537,6 @@ ggplot(filtered_data[filtered_data$Season %in% selected_years, ], aes(x = Adjust
 
 We can see quite a few interesting patterns in this plot. As predicted, the lottery picks consist of more "top players" (players with high adjusted player ratings) than any other draft position. In addition, we can see that the late first round and second round are rather similar in density of player rating. This trend breaks down in 2019, where we can see many more second round picks at a player rating of 4-8 than the late first round, as well as many more players with a player rating of 10-12. Over the years, we can see the curves shift right, towards more talented players. For example, any draft category in 2019 has significantly more players in the 10-12 player rating range than any previous draft category. This may imply that NBA teams have improved at draft prospect analysis and drafting. However, we can also notice that the skill of undrafted players has always hovered around a 4-8 player rating. But, in 2019, there is a noticeable spike in players with a rating above 8. This may imply that the skill of NBA prospects in general has increased over time, supporting the qualitative observations mentioned previously.
 
-### Adjusted Player Rating
-
-We decided to use a modified version of the PER (Player Efficiency Rating) to assign numerical values to player's individual seasons. This is calculated by the sum of their points, assists, rebounds, steals, blocks, made field goals, and made free throws. We then subtract field goal attempts, free throw attempts, and turnovers. We then divide this by (minutes \* season pace \* (15 / season efficiency)). Season pace is defined by the average number of possessions a team gets in 48 minutes. Season efficiency is defined by the average points scored per 100 possessions.
-
-```{r, echo=FALSE}
-# Assuming the League Pace Factor for all seasons is a constant value (e.g., 100)
-constant_pace_factor <- c(93.1, 91.3,90.7,91.0, 90.1, 90.9, 90.5, 91.9, 92.4,91.7, 92.7, 92.1, 91.3, 92, 93.9, 93.9, 95.8, 96.4, 97.3, 100, 100.3)
-adjustment_factor <- 15
-league_efficiency <- c(104.1,103, 104.5,103.6, 102.9, 106.1, 106.2,  106.5, 107.5,108.3,107.6, 107.3, 104.6,105.8,106.6, 105.6,106.4, 108.8, 108.6, 110.4,110.6)
-
-# Assuming player_stats is your data table
-player_stats$Season_numeric <- as.integer(substr(player_stats$Season, 1, 4)) - 1998
-
-# Filter data for Regular Season
-player_stats_regular_season <- player_stats[player_stats$Stage == "Regular_Season", ]
-
-calculate_PER <- function(player) {
-  season_index <- player[["Season_numeric"]]
-
-  pace <- constant_pace_factor[as.integer(season_index)]
-  efficiency <- league_efficiency[as.integer(season_index)]
-
-  # Convert relevant columns to numeric
-  numeric_columns <- c("PTS", "AST", "REB", "STL", "BLK", "FGA", "FGM", "GP", "MIN", "FTM", "FTA", "TOV")
-  player[numeric_columns] <- lapply(player[numeric_columns], as.numeric)
-
-  # PER calculation
-  per <- ((player[["PTS"]] + player[["AST"]] + player[["REB"]] + player[["STL"]] + player[["BLK"]] - player[["FGA"]] + player[["FGM"]] - player[["FTA"]] + player[["FTM"]] - player[["TOV"]]) / player[["MIN"]] * pace * (15 / efficiency))
-
-  aper <- per * (constant_pace_factor[21] / pace) * (league_efficiency[21] / efficiency)
-
-  
-
-  return(aper)
-}
-
-player_stats_regular_season$Adjusted_player_rating <- apply(player_stats_regular_season, 1, calculate_PER)
-```
-
 ```{r, echo=FALSE}
 # Install ggalt package if not installed
 #install.packages("ggalt")
@@ -566,3 +577,5 @@ ggplot(filter, aes(x = MIN, y = Adjusted_player_rating, label = Player, fill = S
 
 This plots players "Adjusted Player Rating" to minutes played, giving us a visualization of the spread of "Adjusted Player Ratings." As we can see, most of the NBA is centered around a player rating between 5-7. We can also see a few players have had great seasons, with player ratings around 12, oftentimes correlating to winning the MVP. We encircled players who had a player rating 3.5 standard deviations greater than the mean. As we can see, these include some of the greatest individual seasons of all time. We can see Curry's unanimous MVP season, the season Westbrook first averaged a triple double, becoming the first player to do so. We can also see Giannis' back-to-back MVP seasons.
 
+## The Ones Above The Rest
+To close out our analysis, we will attempt to find which players have truly stood above the rest throughout the years of the NBA.
