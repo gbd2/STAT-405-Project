@@ -25,7 +25,9 @@ Ultimately, our group seeks to analyze, quantify, and visualize two major questi
 ## Set to FALSE to avoid showing the code by default
 ## (required for your final project, where you are not supposed
 ##  to show code)
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
 ```
 
 ```{r, echo=FALSE, include=FALSE, warnings=FALSE}
@@ -81,6 +83,7 @@ player_stats_19 <- subset(player_stats, Season == "2019")
 ```
 
 ## Evolution of the NBA
+
 We will start by analyzing how the NBA has evolved since its creation. We will be analyzing and visualizing shot distance, points per game, adjusted player rating, and more to attempt to understand the league's evolution.
 
 ### Average Shot Distances By Year
@@ -202,9 +205,60 @@ legend("topleft", legend=c("1999", "2004", "2009", "2014", "2019"), col=c("red",
 
 #### Summary of Regression Model:
 
-In our regression models, we can see our regression lines adhering to the data quite well. Our line hits many of our data points, as well as having a similar number of points above and below the line. However, for each year there is a trend of our data veering far from the regression line as minutes per game increases. Based on the structure of our points, they seem almost exponential. When a player gets between 0 and 30 MPG, their PPG appears to be linearly related to the MPG. However, once a player starts playing more than 30 MPG, their PPG increases rapidly. This phenomenon could be answered by some qualitative observations. The players that play the most MPG are often the best players on the team. Therefore, the steep and sudden increase in PPG after 30 MPG makes sense, it is because the players who play more than 30 MPG are the best players in the league, known for their scoring abilities.
+In our regression models, we can see our regression lines adhering to the data quite well. Our line hits many of our data points, as well as having a similar number of points above and below the line. However, for each year there is a trend of our data veering far from the regression line as minutes per game increases. Based on the structure of our points, they seem almost exponential. When a player gets between 0 and 30 MPG, their PPG appears to be linearly related to the MPG. However, once a player starts playing more than 30 MPG, their PPG increases rapidly. This phenomenon could be answered by some qualitative observations. The players that play the most MPG are often the best players on the team. Therefore, the steep and sudden increase in PPG after 30 MPG makes sense, it is because the players who play more than 30 MPG are the best players in the league, known for their scoring abilities..
 
-As we can see from the plots with their line of best fit, each year has a positive linear relationship with a line of best fit that adequately predicts points per game in respect to minutes per game. However, when analyzing the lines of best fit plotted together, all seasons have a quite similar intercept, and all have a very close slope to one another aside from the 2019 season. When going back and looking at the data for 2019 once again, we found that towards the higher end of minutes per game (33+), the spread of the data becomes increasingly noticeable, especially towards the higher end of the points per game spectrum as we approach 40+ minutes per game. This indicates that there may be outliers and bad leverage points, which we intend to explore in the future.
+As we can see from the plots with their line of best fit, each year has a positive linear relationship with a line of best fit that adequately predicts points per game in respect to minutes per game. However, when analyzing the lines of best fit plotted together, all seasons have a quite similar intercept, and all have a very close slope to one another aside from the 2019 season. When going back and looking at the data for 2019 once again, we found that towards the higher end of minutes per game (33+), the spread of the data becomes increasingly noticeable, especially towards the higher end of the points per game spectrum as we approach 40+ minutes per game. This indicates that there could be bad leverage points in our plots.
+
+### Diagnostic tests on our Regression models
+```{r}
+par(mfrow=c(2, 2)) 
+plot(model_99, main = "1999 Diagnostic Data") 
+par(mfrow=c(2, 2)) 
+plot(model_04, main = "2004 Diagnostic Data") 
+par(mfrow=c(2, 2)) 
+plot(model_09, main = "2009 Diagnostic Data") 
+par(mfrow=c(2, 2)) 
+plot(model_14, main = "2014 Diagnostic Data") 
+par(mfrow=c(2, 2)) 
+plot(model_19, main = "2019 Diagnostic Data") 
+paste(player_stats_14[247, "Player"],":",player_stats_14[247, "MPG"], "Minutes per game,", player_stats_14[247, "PPG"], "Points per game" ) 
+paste(player_stats_14[206, "Player"],":",player_stats_14[206, "MPG"], "Minutes per game,", player_stats_14[206, "PPG"], "Points per game" )
+```
+
+As we can see from the diagnostic plots from each of the observed seasons, there are certainly outliers, but no bad leverage points that affect the fit of the model aside from 2014. Looking into the 2014 season, the bad leverage points were LeBron James and Anthony Davis, who overperformed their expected play.
+
+### Investigating the data of 30+ Minutes per game using Linear Regression
+
+```{r}
+library(viridis)
+library(ggplot2)
+
+player_stats_33_plus_min<- subset(player_stats, MPG >= 33)
+
+model_33_plus_min <- lm(player_stats_33_plus_min$PPG ~ player_stats_33_plus_min$MPG)
+
+player_stats_33_plus_min$fitted_values <- predict(model_33_plus_min)
+
+ggplot(player_stats_33_plus_min, aes(x = MPG, y = PPG, color = as.factor(Season))) + 
+  geom_point() + 
+  geom_line(aes(y = fitted_values), color = "red", linewidth = 1) + 
+  scale_color_viridis(discrete = TRUE, option = "D") + 
+  labs(title = "PPG vs. MPG for Players with 33+ Min/Game", x = "Minutes Per Game (MPG)", y = "Points Per Game (PPG)", color = "Year") + 
+  theme_minimal() 
+
+log_33_model <- lm(log(player_stats_33_plus_min$PPG) ~ player_stats_33_plus_min$MPG)
+
+player_stats_33_plus_min$log_PPG <- log(player_stats_33_plus_min$PPG)
+
+player_stats_33_plus_min$log_ppg_fitted_values <- predict(log_33_model) 
+
+ggplot(player_stats_33_plus_min, aes(x = MPG, y = log_PPG, color = as.factor(Season))) + 
+  geom_point() + 
+  geom_line(aes(y = log_ppg_fitted_values), color = "red", linewidth = 1) + scale_color_viridis(discrete = TRUE, option = "D") + 
+  labs(title = "Log PPG vs. MPG for Players with 33+ Min/Game", x = "Minutes Per Game (MPG)", y = "Log Points Per Game (LPPG)", color = "Year") + 
+  theme_minimal()
+```
+When running a linear regression model on the 33+ minutes per game data, it is clear that the model will not be incredibly accurate, as there is high variation in the data. So, we decided to transform the points per game to see if there was a better metric for linear regression. We chose to take the log of the Points per Game (LPPG). In our new scatterplot, we see that this didn't make much of a difference, as the data is still quite scattered. Ultimately, there is bound to be a large variance in performance when players are tired (or heated up) from being on the court for so long.
 
 ### Histogram of Heights over time
 
@@ -255,7 +309,7 @@ data <- data.frame(
 
 # Calculate percentages and labels
 data$Percentage <- data$Value / tapply(data$Value, data$Season, sum)[data$Season] * 100
-data$Label <- paste(data$Category, sprintf("%.0f%%", data$Percentage))
+data$Label <- paste(data$Category, sprintf("%d%%", round(data$Percentage)))
 
 # Create faceted pie chart with custom colors
 ggplot(data, aes(x = "", y = Percentage, fill = Category)) +
@@ -263,9 +317,10 @@ ggplot(data, aes(x = "", y = Percentage, fill = Category)) +
   coord_polar("y") +
   theme_void() +
   facet_wrap(~Season) +
-  geom_text(aes(label = Label), position = position_stack(vjust = 0.5)) +
+  geom_text(aes(label = Label), position = position_stack(vjust = 0.5), size = 3) +  # Adjust size parameter
   scale_fill_manual(values = c("darkorchid1", "thistle3")) +  # Set custom colors
   labs(title = "Shots Made to Shots Missed by Season")
+
 ```
 
 ### Barchart of Average 3-Point Shooting Percentages of NBA Big-Men By Season
@@ -293,7 +348,7 @@ par(cex.main = 0.9, cex.lab =0.9)
 
 # Create bar plot with adjusted title and y-axis label size
 barplot(result$NumTallPlayers, names.arg = result$Season, col = "blue",
-        xlab = "Season", ylab = "Number of 6'8\"+ Players (3PT >= 30%)",
+        xlab = "Season", ylab = "Frequency",
         main = "Number of 6'8\"+ Players who shot 30% or over from 3PT by Season")
 grid()
 ```
@@ -305,151 +360,68 @@ We chose to go with the height 6'8" as it is the average height for a power forw
 A growing trend in the NBA is their global outreach programs. In doing so, they have spread the game of basketball across the world, inspiring young athletes in many countries. In recent years, we have seen foreign NBA players like Nikola Jokic and Giannis Antetokounmpo dominate the league. We wanted to explore this trend, and provide evidence for this phenomenon of an increasing foreign presence in the NBA.
 
 ```{r, echo=FALSE}
-# Function to keep only the first nationality
-keep_first_nationality <- function(df, nationality_col) {
-  # Split the nationality column by ' / ' and only keep the first element
-  df[[nationality_col]] <- sapply(strsplit(df[[nationality_col]], " / "), `[`, 1)
-  return (df)
-}
+# Extract the year from the 'Season' column
+player_stats$Year <- as.numeric(sub(" - .*", "", player_stats$Season))
 
-# Apply the function to the nba_data dataset
-player_stats <- keep_first_nationality(player_stats, "nationality")
+nationality_counts <- player_stats %>%
+  group_by(nationality) %>%
+  summarise(UniquePlayers = n_distinct(Player)) %>%
+  ungroup()
 
+# Filter out the United States and nationalities with 10 or fewer players
+nationalities_with_more_than_10 <- nationality_counts %>%
+  filter(UniquePlayers > 8 & nationality != "United States") %>%
+  pull(nationality) # Get a vector of the nationalities
 
-# Filtering for specific years
-selected_years <- c(1999, 2004, 2009, 2014, 2019)
-player_stats_99_04_09_14_19 <- player_stats[player_stats$Season %in% selected_years,]
+# Filter the original data for these nationalities
+filtered_player_stats <- player_stats %>%
+  filter(nationality %in% nationalities_with_more_than_10)
 
-nationalities_of_interest <- c("Nigeria", "Canada", "France", "Serbia", "Australia")
+annual_nationality_counts <- filtered_player_stats %>%
+  group_by(Year, nationality) %>%
+  summarise(PlayerCount = n_distinct(Player), .groups = 'drop')
 
-# This creates a logical vector indicating rows where the Nationality column matches any nationality of interest
-matches_nationality <- sapply(nationalities_of_interest, function(nat) grepl(nat, player_stats_99_04_09_14_19$nationality, ignore.case = TRUE))
-
-# Reduce the matches_nationality matrix to a single logical vector where TRUE indicates a row matched any nationality
-rows_to_keep <- apply(matches_nationality, 1, any)
-
-# Filter nba_data_filtered based on rows_to_keep
-nba_data_filtered <- player_stats_99_04_09_14_19[rows_to_keep,]
-
-
-nba_data_counts <- nba_data_filtered %>%
-  group_by(nationality, Season) %>%
-  summarise(PlayerCount = n(), .groups = 'drop')
-
-
-
-ggplot(nba_data_counts, aes(x = nationality, y = Season, fill = PlayerCount)) +
-  geom_tile() +
-  scale_fill_gradientn(colors = c('cyan1', 'cadetblue2', 'lightblue', 'blue', 'darkblue'), limits = c(0, 20)) +
-  facet_wrap(~ Season, ncol = 1, scales = "free_y") + 
-  labs(title = "NBA Players by Nationality and Season",
-       x = "Nationality",
-       y = "Season") +
+# Plot
+p <- ggplot(annual_nationality_counts, aes(x = Year, y = PlayerCount, group = nationality, color = nationality)) +
+  geom_line(linewidth = 1.2) +  # Updated to use `linewidth`
+  geom_point(data = annual_nationality_counts %>% 
+               group_by(nationality) %>% 
+               filter(Year == min(Year) | Year == max(Year)),  # Points at beginning and end
+             size = 3) +
+  labs(title = "Number of NBA Players by Nationality Over Years",
+       x = "Year", y = "Number of Players", color = "Nationality") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_y_discrete(breaks = 0) 
+  theme(legend.position = "bottom",
+        panel.border = element_rect(colour = "black", fill=NA, linewidth = 1),  # Updated to use `linewidth`
+        axis.text.x = element_text(size = 10))  # Change the size as needed
+
+p
+annual_nationality_counts_filtered <- annual_nationality_counts %>%
+  group_by(nationality) %>%
+  filter(Year == min(Year) | Year == max(Year)) %>%
+  ungroup()
+
+
+# Plot with only the beginning and end points for each nationality
+q <- ggplot(annual_nationality_counts_filtered, aes(x = Year, y = PlayerCount, group = nationality, color = nationality)) +
+  geom_line(size = 1.2) +  # Make lines thicker
+  geom_point(size = 3) +   # Add points
+  labs(title = "Overall Change in Number of NBA Players by Nationality",
+       x = "Year", y = "Number of Players", color = "Nationality") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))  # Add black border
+
+# Print the plot
+print(q)
 ```
-
-The heat map plots the number of players from Australia, Canada, France, Nigeria, and Serbia in the 1999, 2004, 2009, 2014, and 2019 seasons. We chose these countries as they represent the most foreign NBA players in the league today. Based on the results from the heat map, we can see that even in the past 2 decades, there were not many foreign players that joined the NBA. However, as we get closer to the current decade, it becomes obvious that the influence of the NBA has reached outside of the US because more people from all included countries in the graph have a higher density of people that join the NBA. This aligns with the qualitative observation that the NBA is becoming an increasingly popular sport that reaches well outside the confines of the US.
-
-### Stacked Barchart of 2-Point and 3-Point Shots Made By Top 10 NBA Players Each Year
-
-Seeing how talented NBA players are naturally raises the question of who the best player is. This can be approximated by measuring the number of points a player makes. We aggregated the points each player made per season to see if we could see any trends regarding who the top scorers were.
-
-```{r, echo=FALSE}
-shots_data <- fread("shot_dist.csv")
-shots_data[, score := as.character(score)]
-shots_data$scoremargin <- as.numeric(gsub("TIE", "0", shots_data$scoremargin))
-shots_data <- shots_data[score != ""]
-
-shots_data <- shots_data[order(shots_data$game_id, shots_data$eventnum), ]
-
-common_player_info <- fread("common_player_info.csv")
-player_id_name_mapping <- common_player_info[, .(person_id, display_last_comma_first)]
-shots_data <- merge(shots_data, player_id_name_mapping, by.x = "player1_id", by.y = "person_id", all.x = TRUE)
-
-shots_data[, player1_name := fifelse(is.na(player1_name) | player1_name == "", display_last_comma_first, player1_name)]
-
-# Convert scoremargin to numeric
-shots_data$scoremargin <- as.numeric(as.character(shots_data$scoremargin))
-
-# Handle cases where conversion to numeric introduces NAs due to conversion issues
-# This is optional and depends on how you wish to handle non-numeric or problematic values
-shots_data$scoremargin[is.na(shots_data$scoremargin)] <- 0
-
-# Calculate points
-shots_data$points <- rep(0, nrow(shots_data))
-
-shots_data$points <- c(0, diff(shots_data$scoremargin))
-
-# Identify the start of a new game
-is_new_game <- c(TRUE, diff(shots_data$game_id) != 0)
-
-# Correct points at the start of a new game
-shots_data$points[is_new_game] <- shots_data$scoremargin[is_new_game]
-
-shots_data$points <- pmin(pmax(shots_data$points, 0), 3)
-
-# Determine shot type based on points
-shots_data$shot_type <- ifelse(shots_data$points == 3, "3-pointer", "2-pointer")
-
-shots_data[, shot_count := 1]  # Add a new column to count each shot
-
-# Aggregate the count of shots by player, year, and shot type
-shots_data_aggregated <- shots_data[, .(shots_made = .N), by = .(game_date, player1_name, shot_type)]
-
-# Calculate total shots made for each player per year, across all shot types
-shots_data_aggregated[, total_shots := sum(shots_made), by = .(game_date, player1_name)]
-# 
-# shots_data[, points := fifelse(shot_type == "2-pointer", 2, 3)]
-# 
-# # Aggregate points by player, year, and shot type
-# shots_data_aggregated <- shots_data[, .(total_points = sum(points)), by = .(game_date, player1_name)]
-# 
-# # Calculate total points scored per year across all players
-# total_points_by_year <- shots_data_aggregated[, .(total_yearly_points = sum(total_points)), by = .(game_date)]
-# 
-# # Order the results to see the years with the most points scored
-# total_points_by_year_ordered <- total_points_by_year[order(-total_yearly_points)]
-# 
-# # Print the years with the most total points scored
-# print(total_points_by_year_ordered)
-# 
-# Now get the top 20 players by year based on total shots made
-top_shooters_by_year <- shots_data_aggregated[order(-total_shots), ][, head(.SD, 20), by = .(game_date)]
-
-# Ensure the aggregated shot counts and shot types are correct for the top players, including total_shots
-top_shooters_by_year <- top_shooters_by_year[, .(shots_made = sum(shots_made)), by = .(game_date, player1_name, shot_type, total_shots)]
-
-years_of_interest <- c(1998, 2008, 2021)
-
-# Create stacked barplots only for the specified years
-for(year in years_of_interest) {
-  # Check if the year is present in the dataset
-    plot_data <- subset(top_shooters_by_year, game_date == year)
-    p <- ggplot(plot_data, aes(x = reorder(player1_name, total_shots), y = shots_made, fill = shot_type)) +
-      geom_bar(stat = "identity") +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-      labs(title = paste("Top Shooters in", year), x = "Player", y = "Number of Shots Made") +
-      scale_fill_manual(values = c("2-pointer" = "blue", "3-pointer" = "green")) +
-      guides(fill = guide_legend(title = "Shot Type"))
-    print(p)
-}
-```
-
-In the above R script, the top 10 scorers in the 3 most interesting years in our current decade, past decade, and past 2 decades are represented in a stacked bar plot. The notion of 'most interesting' was determined by the years with the most number of points made. The number of 2 pointers and 3 pointers that the players made are the y-axis and the top 10 players ranked by the number of points scored is the x-axis. We chose to only show the top 10 players since modelling every player would obfuscate the details of the graph too much. From the data, we can see the players that scored the most points, what proportion of those shots were 2 pointers versus 3 pointers, and how the player did compared to other top scorers. A specific observation that we can make is LeBron James' dominance in the point scoring scene, which aligns with the qualitative observation that we can make regarding LeBron's status as one of the most prolific, if not the most prolific, scorers of all time.
+The line graph plots the number of players from Australia, Canada, France, Spain, and Serbia across all the years that we have on the data set. We chose these specific countries as they represent the most foreign NBA players in the league today. Based on the results from the graph, we can see that even in the past 2 decades, there were not many foreign players that joined the NBA. However, as we get closer to the current decade, it becomes obvious that the influence of the NBA has reached outside of the US because more people from all included countries in the graph have a higher density of people that join the NBA. This aligns with the qualitative observation that the NBA is becoming an increasingly popular sport that reaches well outside the confines of the US. The second graph is a graph that shows the beginning number and the end number, and it shows that without fail, across all the countries with the highest density of NBA players, the number of players increase.
 
 ### Adjusted Player Rating
 
-We decided to use a modified version of the PER (Player Efficiency Rating) to assign numerical values to player's individual seasons. This is calculated by the sum of their points, assists, rebounds, steals, blocks, made field goals, and made free throws. We then subtract field goal attempts, free throw attempts, and turnovers. We then divide this by (minutes \* season pace \* (15 / season efficiency)). Season pace is defined by the average number of possessions a team gets in 48 minutes. Season efficiency is defined by the average points scored per 100 possessions.
+We decided to use a modified version of the PER (Player Efficiency Rating) to assign numerical values to player's individual seasons. This is calculated by the sum of their points, assists, rebounds, steals, blocks, made field goals, and made free throws. We then subtract field goal attempts, free throw attempts, and turnovers. We then divide this by the number of games played. 
 
 ```{r, echo=FALSE}
-# Assuming the League Pace Factor for all seasons is a constant value (e.g., 100)
-constant_pace_factor <- c(93.1, 91.3,90.7,91.0, 90.1, 90.9, 90.5, 91.9, 92.4,91.7, 92.7, 92.1, 91.3, 92, 93.9, 93.9, 95.8, 96.4, 97.3, 100, 100.3)
-adjustment_factor <- 15
-league_efficiency <- c(104.1,103, 104.5,103.6, 102.9, 106.1, 106.2,  106.5, 107.5,108.3,107.6, 107.3, 104.6,105.8,106.6, 105.6,106.4, 108.8, 108.6, 110.4,110.6)
-
-# Assuming player_stats is your data table
 player_stats$Season_numeric <- as.integer(substr(player_stats$Season, 1, 4)) - 1998
 
 # Filter data for Regular Season
@@ -458,24 +430,21 @@ player_stats_regular_season <- player_stats[player_stats$Stage == "Regular_Seaso
 calculate_PER <- function(player) {
   season_index <- player[["Season_numeric"]]
 
-  pace <- constant_pace_factor[as.integer(season_index)]
-  efficiency <- league_efficiency[as.integer(season_index)]
-
   # Convert relevant columns to numeric
   numeric_columns <- c("PTS", "AST", "REB", "STL", "BLK", "FGA", "FGM", "GP", "MIN", "FTM", "FTA", "TOV")
   player[numeric_columns] <- lapply(player[numeric_columns], as.numeric)
 
   # PER calculation
-  per <- ((player[["PTS"]] + player[["AST"]] + player[["REB"]] + player[["STL"]] + player[["BLK"]] - player[["FGA"]] + player[["FGM"]] - player[["FTA"]] + player[["FTM"]] - player[["TOV"]]) / player[["MIN"]] * pace * (15 / efficiency))
+  per <- ((player[["PTS"]] + player[["AST"]] + player[["REB"]] + player[["STL"]] + player[["BLK"]] - (player[["FGA"]] - player[["FGM"]]) - (player[["FTA"]] - player[["FTM"]]) - player[["TOV"]]) / (player[["GP"]]))
 
-  aper <- per * (constant_pace_factor[21] / pace) * (league_efficiency[21] / efficiency)
 
-  
-
-  return(aper)
+  return(per)
 }
 
 player_stats_regular_season$Adjusted_player_rating <- apply(player_stats_regular_season, 1, calculate_PER)
+
+player_stats_total <- player_stats
+player_stats_total$Adjusted_player_rating <- apply(player_stats_total, 1, calculate_PER)
 ```
 
 ### Density Plot of Adjusted Player Rating By Draft Pick
@@ -488,12 +457,8 @@ player_stats_regular_season$draft_pick <- sprintf("%d.%02d", player_stats_regula
 # Drop the original "draft_round" column
 player_stats_regular_season <- subset(player_stats_regular_season, select = -c(draft_round))
 
-# Assuming you have a data frame named player_stats_regular_season with columns: Season, Adjusted_player_rating, and Draft_pick
-
 # Convert Draft_pick to numeric for comparison
-suppressWarnings(
-  player_stats_regular_season$Draft_numeric <- as.numeric(player_stats_regular_season$draft_pick)
-)
+player_stats_regular_season$Draft_numeric <- as.numeric(player_stats_regular_season$draft_pick)
 
 # Create draft categories based on the specified ranges
 player_stats_regular_season$Draft_category[player_stats_regular_season$Draft_numeric >= 1.01 & player_stats_regular_season$Draft_numeric <= 1.14] <- "Lottery Pick"
@@ -505,7 +470,6 @@ player_stats_regular_season$Draft_category[is.na(player_stats_regular_season$Dra
 # Specify the order of Draft categories
 order_draft_categories <- c("Lottery Pick", "Late First Round", "Second Round", "Undrafted")
 player_stats_regular_season$Draft_category <- factor(player_stats_regular_season$Draft_category, levels = order_draft_categories)
-
 
 # Calculate average Adjusted_player_rating for each season
 average_ratings <- aggregate(Adjusted_player_rating ~ Season, data = player_stats_regular_season, mean, na.rm = TRUE)
@@ -537,24 +501,44 @@ ggplot(filtered_data[filtered_data$Season %in% selected_years, ], aes(x = Adjust
 
 We can see quite a few interesting patterns in this plot. As predicted, the lottery picks consist of more "top players" (players with high adjusted player ratings) than any other draft position. In addition, we can see that the late first round and second round are rather similar in density of player rating. This trend breaks down in 2019, where we can see many more second round picks at a player rating of 4-8 than the late first round, as well as many more players with a player rating of 10-12. Over the years, we can see the curves shift right, towards more talented players. For example, any draft category in 2019 has significantly more players in the 10-12 player rating range than any previous draft category. This may imply that NBA teams have improved at draft prospect analysis and drafting. However, we can also notice that the skill of undrafted players has always hovered around a 4-8 player rating. But, in 2019, there is a noticeable spike in players with a rating above 8. This may imply that the skill of NBA prospects in general has increased over time, supporting the qualitative observations mentioned previously.
 
+## The Ones Above The Rest
+
+To close out our analysis, we will attempt to find which players have truly stood above the rest throughout the years of the NBA. NBA dialouge has alwasy revolved around player comparison. Rivalries like Lebron v. Jordan or Magic v. Bird has sparked debates over who the "GOAT" (Greatest of All Time) of basketball is. We are looking to provide visualizations to help demonstrate some of the best players in the league of the last 20 years.
+
+### Player Rating vs. Minutes Played, per Season
+
+Our first look at finding the best players utilized our adjusted player rating metric. We wanted to compare the best individual seasons across the last 20 years, hoping to find correlations with the highest adjusted player ratings and seasons said player won MVP.
 ```{r, echo=FALSE}
-# Install ggalt package if not installed
 #install.packages("ggalt")
 
-# Assuming player_stats_regular_season is your original dataset
-# Replace column names accordingly based on your actual dataset
-# For example, replace "Adjusted_player_rating" and "Games_played" with actual column names
+calculate_PER <- function(player) {
+  season_index <- player[["Season_numeric"]]
+
+  # Convert relevant columns to numeric
+  numeric_columns <- c("PTS", "AST", "REB", "STL", "BLK", "FGA", "FGM", "GP", "MIN", "FTM", "FTA", "TOV")
+  player[numeric_columns] <- lapply(player[numeric_columns], as.numeric)
+
+  # PER calculation
+  per <- ((player[["PTS"]] + player[["AST"]] + player[["REB"]] + player[["STL"]] + player[["BLK"]] - (player[["FGA"]] - player[["FGM"]]) - (player[["FTA"]] - player[["FTM"]]) - player[["TOV"]]) / (player[["GP"]]))
+
+
+  return(per)
+}
+
+
+test <- read.csv("player_stats.csv")
+test$Season_numeric <- as.integer(substr(test$Season, 1, 4)) - 1998
+reg_szn <- test[test$Stage == "Regular_Season", ]
+reg_szn$Adjusted_player_rating <- apply(reg_szn, 1, calculate_PER)
+
+
 
 # Calculate the mean and standard deviation of "Adjusted_player_rating"
 mean_rating <- mean(player_stats_regular_season$Adjusted_player_rating)
 sd_rating <- sd(player_stats_regular_season$Adjusted_player_rating)
 
-# Filter data for Adjusted_player_rating greater than 1
-filter <- player_stats_regular_season[player_stats_regular_season$Adjusted_player_rating > 1, ]
-filter <- filter[filter$MIN > 500,]
-
 # Create a scatter plot with encircling for points greater than 1
-ggplot(filter, aes(x = MIN, y = Adjusted_player_rating, label = Player, fill = Season)) +
+ggplot(player_stats_regular_season, aes(x = MIN, y = Adjusted_player_rating, label = Player, fill = Season)) +
   geom_point(shape = 21, size = 2, color = "black") +
   geom_encircle(aes(x = MIN, y = Adjusted_player_rating), 
                 data = subset(filter, Adjusted_player_rating > 3.5 * sd_rating + mean_rating),
@@ -575,7 +559,129 @@ ggplot(filter, aes(x = MIN, y = Adjusted_player_rating, label = Player, fill = S
                                "2017" = "darkgrey", "2018" = "black", "2019" = "darkmagenta"))
 ```
 
-This plots players "Adjusted Player Rating" to minutes played, giving us a visualization of the spread of "Adjusted Player Ratings." As we can see, most of the NBA is centered around a player rating between 5-7. We can also see a few players have had great seasons, with player ratings around 12, oftentimes correlating to winning the MVP. We encircled players who had a player rating 3.5 standard deviations greater than the mean. As we can see, these include some of the greatest individual seasons of all time. We can see Curry's unanimous MVP season, the season Westbrook first averaged a triple double, becoming the first player to do so. We can also see Giannis' back-to-back MVP seasons.
+We can see quite a few interesting patterns in this plot. As predicted, the lottery picks consist of more "top players" (players with high adjusted player ratings) than any other draft position. In addition, we can see that the late first round and second round are rather similar in density of player rating. This trend breaks down in 2009, where we can see many more second round picks at a player rating of 15-20 than the late first round, as well as many more players with a player rating of 10. Over the years, we can see the curves shift right, towards more talented players. For example, any draft category in 2019 has significantly more players above 20 than any previous draft category. This may imply that NBA teams have improved at draft prospect analysis and drafting. However, we can also notice that the skill of undrafted players has always hovered around a 8-10 player rating. But, in 2019, there is a noticeable spike in players with a rating above 15. This may imply that the skill of NBA prospects in general has increased over time, supporting the qualitative observations mentioned previously.
 
-## The Ones Above The Rest
-To close out our analysis, we will attempt to find which players have truly stood above the rest throughout the years of the NBA.
+### Playoff Performance
+
+Among NBA discourse, playoff performance holds significantly more weight than regular season performance. In tandem, many players are labeled "playoff risers" and "playoff chokers", performing better or worse than usual in the playoffs, where each game truly matters. To explore this phenomenon, we wanted to compare players average Adjusted Player Rating throughout their careers, split between their regular season performances and their playoffs performances. In doing so, we can visualize the best playoff performers, the best regular season performers, and those who best elevate their game when it matters.
+
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+average_ratings_team <- player_stats_regular_season %>%
+  group_by(Season, Team) %>%
+  summarize(Average_Player_Rating = mean(Adjusted_player_rating, na.rm = TRUE))
+
+reg_season <- player_stats_total[player_stats_total$Stage == "Regular_Season", ]
+
+average_ratings_player_regular <- reg_season %>%
+  group_by(Player) %>%
+  summarize(Average_Player_Rating = mean(Adjusted_player_rating, na.rm = TRUE))
+
+player_stats_playoffs <- player_stats[player_stats$Stage == "Playoffs", ]
+player_stats_playoffs$Adjusted_player_rating <- apply(player_stats_playoffs, 1, calculate_PER)
+
+average_ratings_playoffs <- player_stats_playoffs %>%
+  group_by(Player) %>%
+  summarize(Average_Player_Rating = mean(Adjusted_player_rating, na.rm = TRUE))
+
+
+
+merged_team_data <- merge(average_ratings_player_regular, average_ratings_playoffs, by = "Player", suffixes = c("_regular", "_playoffs"))
+
+
+ggplot(merged_team_data, aes(x = Average_Player_Rating_regular, y = Average_Player_Rating_playoffs, label = Player)) +
+  geom_point(aes(color = ifelse(Average_Player_Rating_playoffs > predict(lm(Average_Player_Rating_playoffs ~ Average_Player_Rating_regular, data = merged_team_data)), "green", "red"))) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  geom_text_repel(data = subset(merged_team_data, abs(Average_Player_Rating_playoffs - predict(lm(Average_Player_Rating_playoffs ~ Average_Player_Rating_regular, data = merged_team_data))) >= 3),
+                 aes(label = Player),
+                 box.padding = 0.5, point.padding = 0.5, segment.color = 'red',
+                 direction = 'both', min.segment.length = 0.5, nudge_x = 0.5, nudge_y = 0.5,
+                 size = 2) +
+  labs(title = "Scatter Plot of Regular Season and Playoffs Ratings",
+       x = "Regular Season Average Rating",
+       y = "Playoffs Average Rating") +
+  scale_color_manual(values = c("green", "red")) +  # Set colors for above and below the line
+  theme_minimal() +
+  guides(color = FALSE)  # Remove the legend for color
+```
+
+In our plot, players labeled with red dots symbolize individuals who perform worse in the playoffs than the regular season, whereas green is the opposite. We also performed a regression and plotted the line. As we can see in our regression line, playoff rating and regular season rating is nearly one-to-one. However, the slope of the regression line is slightly below one, indicating that, on average, players play worse in the playoffs than they do in the regular season. This makes sense, they are now playing against the best teams in the league, where the competition is significantly elevated. So, we compared playoff "risers" and "chokers" according to this basis. We can see that players like Luka Doncic, Anthony Davis, and Nikola Jokic are not only elite in the regular season, but surpass this level in the playoffs. More "average" players like Jamal Murray and Caris LeVert take thier game to an elite level in the playoffs. In addition, we can see very good players like Karl-Anthony Towns, DeMarcus Cousins, and Kevin Love have historically underperformed in the playoffs, a mark of a "Regular Season Merchant."
+
+All in all, the difference between a good player and a great player is simple. A great player shows up and elevates their game in the playoffs. In our chart, we can see that Luka, Jokic, LeBron, and Anthony Davis are not only elite in the regular season, but elevate their games to never before seen levels in the playoffs.
+
+### Stacked Barchart of 2-Point and 3-Point Shots Made By Top 10 NBA Players Each Year
+
+Seeing how talented NBA players are naturally raises the question of who the best player is. This can be approximated by measuring the number of points a player makes. We aggregated the points each player made per season to see if we could see any trends regarding who the top scorers were.
+
+```{r}
+shots_data <- fread("shot_dist.csv")
+shots_data[, score := as.character(score)]
+shots_data$scoremargin <- as.numeric(gsub("TIE", "0", shots_data$scoremargin))
+shots_data <- shots_data[score != ""]
+
+shots_data <- shots_data[order(shots_data$game_id, shots_data$eventnum), ]
+
+common_player_info <- fread("common_player_info.csv")
+player_id_name_mapping <- common_player_info[, .(person_id, display_last_comma_first)]
+shots_data <- merge(shots_data, player_id_name_mapping, by.x = "player1_id", by.y = "person_id", all.x = TRUE)
+
+shots_data[, player1_name := fifelse(is.na(player1_name) | player1_name == "", display_last_comma_first, player1_name)]
+
+# Convert scoremargin to numeric
+shots_data$scoremargin <- as.numeric(as.character(shots_data$scoremargin))
+
+# Handle cases where conversion to numeric introduces NAs due to conversion issues
+shots_data$scoremargin[is.na(shots_data$scoremargin)] <- 0
+
+# Calculate points
+shots_data$points <- rep(0, nrow(shots_data))
+
+shots_data$points <- c(0, diff(shots_data$scoremargin))
+
+# Identify the start of a new game
+is_new_game <- c(TRUE, diff(shots_data$game_id) != 0)
+
+# Correct points at the start of a new game
+shots_data$points[is_new_game] <- shots_data$scoremargin[is_new_game]
+
+shots_data$points <- pmin(pmax(shots_data$points, 0), 3)
+
+# Determine shot type based on points
+shots_data$shot_type <- ifelse(shots_data$points == 3, "3-pointer", "2-pointer")
+
+shots_data[, shot_count := 1]  # Add a new column to count each shot
+
+# Aggregate the count of shots by player, year, and shot type
+shots_data_aggregated <- shots_data[, .(shots_made = .N), by = .(game_date, player1_name, shot_type)]
+
+# Calculate total shots made for each player per year, across all shot types
+shots_data_aggregated[, total_shots := sum(shots_made), by = .(game_date, player1_name)]
+
+top_shooters_by_year <- shots_data_aggregated[order(-total_shots), ][, head(.SD, 20), by = .(game_date)]
+
+# Ensure the aggregated shot counts and shot types are correct for the top players, including total_shots
+top_shooters_by_year <- top_shooters_by_year[, .(shots_made = sum(shots_made)), by = .(game_date, player1_name, shot_type, total_shots)]
+
+years_of_interest <- c(1998, 2008, 2021)
+
+# Create stacked barplots only for the specified years
+for (year in years_of_interest) {
+  # Check if the year is present in the dataset
+  plot_data <- subset(top_shooters_by_year, game_date == year)
+  
+  p <- ggplot(plot_data, aes(x = reorder(player1_name, total_shots), y = shots_made, fill = shot_type)) +
+    geom_bar(stat = "identity") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title = paste("Top Shooters in", year), x = "Player", y = "Number of Shots Made") +
+    scale_fill_manual(values = c("2-pointer" = "blue", "3-pointer" = "green")) +
+    guides(fill = guide_legend(title = "Shot Type")) +
+    scale_y_continuous(limits = c(0, 1100))  # Set y-axis limit
+    
+  print(p)
+}
+
+```
+
+In the above R script, the top 10 scorers in the 3 most interesting years in our current decade, past decade, and past 2 decades are represented in a stacked bar plot. The notion of 'most interesting' was determined by the years with the most number of points made. The number of 2 pointers and 3 pointers that the players made are the y-axis and the top 10 players ranked by the number of points scored is the x-axis. We chose to only show the top 10 players since modelling every player would obfuscate the details of the graph too much. From the data, we can see the players that scored the most points, what proportion of those shots were 2 pointers versus 3 pointers, and how the player did compared to other top scorers. A specific observation that we can make is LeBron James' dominance in the point scoring scene, which aligns with the qualitative observation that we can make regarding LeBron's status as one of the most prolific, if not the most prolific, scorers of all time.
