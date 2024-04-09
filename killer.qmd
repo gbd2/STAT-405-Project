@@ -1,0 +1,260 @@
+---
+title: "killer"
+format: pdf
+---
+
+```{r, echo=TRUE}
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(ggalt)
+library(knitr)
+library(RSQLite)
+library(grid)
+library(lubridate)
+```
+
+
+```{r}
+
+get_query <- function(type, spec_day = 1, spec_month = 1, start_year = 1986, end_year = 2024) {
+  if (type == "day") {
+    query <- paste0("
+        WITH data AS (
+          SELECT
+            CASE
+              WHEN min > 240
+                THEN 50
+              ELSE 0
+            END AS OT,
+            (fg_pct_home + fg_pct_away)/2 AS avg_fg_pct,
+            (fg3_pct_home + fg3_pct_away)/2 AS avg_fg3_pct,
+            (stl_home + stl_away) AS stls,
+            (blk_home + blk_away) AS blks,
+            (tov_home + tov_away - stl_home - stl_away) AS off_tov,
+            (tov_home + tov_away) AS tov,
+            (pts_home + pts_away) AS pts,
+            ABS(plus_minus_home) AS plus_minus,
+            game_date,
+            CAST(STRFTIME('%d', game_date) AS NUMERIC) AS day,
+            CAST(STRFTIME('%m', game_date) AS NUMERIC) AS month,
+            CAST(STRFTIME('%Y', game_date) AS NUMERIC) AS year
+          FROM
+            game
+          WHERE game_date > '1985-08-01'
+            AND off_tov >= 0
+        )
+        
+        SELECT
+          day,
+          AVG(1000 + POWER(plus_minus, 2) - OT + off_tov + .75 * (pts+stls+blks)) AS gcf,
+          COUNT(*) AS count
+        FROM
+          data
+        WHERE month = ", spec_month, "
+          AND (
+              (month = 2 AND day <= 29)
+              OR (month IN (4, 6, 9, 11) AND day <= 30)
+              OR (month IN (1, 3, 5, 7, 8, 10, 12))
+            )
+          AND year <= ", end_year, "
+          AND year >= ", start_year, "
+        GROUP BY day;
+        "
+        )
+  } else if (type == "month") {
+    query <- paste0("
+        WITH data AS (
+          SELECT
+            CASE
+              WHEN min > 240
+                THEN 50
+              ELSE 0
+            END AS OT,
+            (fg_pct_home + fg_pct_away)/2 AS avg_fg_pct,
+            (fg3_pct_home + fg3_pct_away)/2 AS avg_fg3_pct,
+            (stl_home + stl_away) AS stls,
+            (blk_home + blk_away) AS blks,
+            (tov_home + tov_away - stl_home - stl_away) AS off_tov,
+            (tov_home + tov_away) AS tov,
+            (pts_home + pts_away) AS pts,
+            ABS(plus_minus_home) AS plus_minus,
+            game_date,
+            CAST(STRFTIME('%d', game_date) AS NUMERIC) AS day,
+            CAST(STRFTIME('%m', game_date) AS NUMERIC) AS month,
+            CAST(STRFTIME('%Y', game_date) AS NUMERIC) AS year
+          FROM
+            game
+          WHERE game_date > '1985-08-01'
+            AND off_tov >= 0
+        )
+        
+        SELECT
+          month,
+          AVG(1000 + POWER(plus_minus, 2) - OT + off_tov + .75 * (pts+stls+blks)) AS gcf,
+          COUNT(*) AS count
+        FROM
+          data
+        WHERE year <= ", end_year, "
+          AND year >= ", start_year, "
+        GROUP BY month;
+        "
+        )
+  }
+  dcon <- dbConnect(SQLite(), dbname = "data/nba.db")
+  res <- dbSendQuery(dcon, query)
+  game <- dbFetch(res, -1)
+  dbClearResult(res)
+  dbDisconnect(dcon)
+  max <- max(game$gcf)
+  min <- min(game$gcf)
+  if (type == "day") {
+    game <- game %>%
+      filter(day == spec_day)
+  } else if (type == "month") {
+    game <- game %>%
+      filter(month == spec_month)
+  }
+  if (nrow(game) == 0) {
+    return (NULL)
+  }
+  values <- slice(game, 1)
+  values$max <- max
+  values$min <- min
+  return (values)
+}
+
+```
+
+
+```{r}
+month = 12
+start_year = 1986
+end_year= 2024
+type = "day"
+grid.newpage()
+title_vp <- viewport(x=.5, y=.85, width=1, height=.15,
+                     just=c("center", "bottom"))
+grid.text("League Competitiveness By Day, Month, and Year", vp=title_vp,
+          gp = gpar(fontsize = 18))
+
+grid.lines(x = c(.30, .30), y = c(0, .85), gp = gpar(col = "black", lwd=2))
+grid.lines(x = c(0, 1), y = c(.85, .85), gp = gpar(col = "black", lwd=2))
+if (type == "day") {
+  subtitle_vp <- viewport(x=.30, y=.73, width=.7, height=.12,
+                        just=c("left", "bottom"))
+  grid.text(month.name[month], vp=subtitle_vp, gp = gpar(fontsize = 16))
+  
+  legend_vp <- viewport(x=.83, y=.04, width=.085,
+                        height=.13, just = c("left", "bottom"))
+  grid.text("Not enough data\n(< 3 games)", vp=legend_vp)
+  
+  for (i in 1:5) {
+    for (j in 1:7) {
+      d <- (i-1)*7 + j
+      
+      # Calculate viewport parameters
+      vp_x <- 0.325 + (j - 1) * 0.09286
+      vp_y <- 0.60 - (i - 1) * 0.14
+      vp_width <- 0.085
+      vp_height <- 0.13
+      
+      if (d >= 32) {
+        if (i == 5 & j == 5) {
+          pushViewport(viewport(x = vp_x, y=vp_y, width = vp_width,
+                                height = vp_height, just = c("left", "bottom")))
+          grid.rect(gp = gpar(col="black", lwd=2, fill=NA))
+          grid.lines(x=c(0,1), y=c(0,1), gp = gpar(col = "black", lwd = 2))
+        }
+        next
+      }
+      
+      # parameters obtained from shiny
+      values <- get_query(type=type, spec_day=d, spec_month=month,
+                          start_year=start_year, end_year=end_year)
+      
+      if (!is.null(values) && values$count >= 3) {
+        gcf <- as.integer(values$gcf)
+        max <- as.integer(values$max)
+        min <- as.integer(values$min)
+        norm_prop <- (gcf-min)/(max-min)
+        
+        pushViewport(viewport(x = vp_x, y=vp_y, width = vp_width,
+                              height = vp_height*norm_prop,
+                              just = c("left", "bottom")))
+    
+        grid.rect(gp = gpar(col = "black", lwd = 2, fill = "orange"))
+        
+        # Pop the viewport
+        popViewport()
+      }
+      
+      # Create viewport for each cell
+      pushViewport(viewport(x = vp_x, y = vp_y, width = vp_width,
+                            height = vp_height, just = c("left", "bottom")))
+      
+      grid.rect(gp = gpar(col = "black", lwd = 2, fill = NA))
+      if (is.null(values) || values$count < 3) {
+        grid.lines(x=c(0,1), y=c(0,1), gp = gpar(col = "black", lwd = 2))
+      }
+      grid.text(d, x=0.05, y=.95, just=c("left", "top"),
+                gp = gpar(fontsize=10))
+      # Pop the viewport
+      popViewport()
+    }
+  }
+} else if (type == "month") {
+  box_vp <- viewport(x = 0.01, y=0.01, width = .1655,
+                     height = .22, just = c("left", "bottom"))
+  grid.rect(gp = gpar(col="black", lwd=2, fill=NA), vp=box_vp)
+  grid.lines(x=c(0,1), y=c(0,1), gp = gpar(col = "black", lwd = 2), vp=box_vp)
+  legend_vp <- viewport(x=.155, y=0, width=.1655,
+                        height=.22, just = c("left", "bottom"))
+  grid.text("Not enough\ndata\n(< 3 games)", vp=legend_vp,
+            gp = gpar(fontsize=11))
+  for (i in 1:3) {
+    for (j in 1:4) {
+      m <- (i-1)*4 + j
+      vp_x <- 0.325 + (j - 1) * 0.165
+      vp_y <- 0.575 - (i - 1) * 0.28
+      vp_width <- 0.155
+      vp_height <- 0.22
+      values <- get_query(type=type, spec_month = m, start_year=start_year,
+                          end_year=end_year)
+      if (!is.null(values) && values$count >= 3) {
+        gcf <- as.integer(values$gcf)
+        max <- as.integer(values$max)
+        min <- as.integer(values$min)
+        norm_prop <- (gcf-min)/(max-min)
+        
+        pushViewport(viewport(x = vp_x, y=vp_y, width = vp_width,
+                              height = vp_height*norm_prop,
+                              just = c("left", "bottom")))
+    
+        grid.rect(gp = gpar(col = "black", lwd = 2, fill = "orange"))
+        
+        # Pop the viewport
+        popViewport()
+      }
+      # Create viewport for each cell
+      pushViewport(viewport(x = vp_x, y = vp_y, width = vp_width,
+                            height = vp_height, just = c("left", "bottom")))
+      
+      grid.rect(gp = gpar(col = "black", lwd = 2, fill = NA))
+      if (is.null(values) || values$count < 3) {
+        grid.lines(x=c(0,1), y=c(0,1), gp = gpar(col = "black", lwd = 2))
+      }
+      # Pop the viewport
+      popViewport()
+      
+      pushViewport(viewport(x = vp_x, y = vp_y+.75*vp_height+0.02, width = vp_width,
+                            height = .13, just = c("left", "bottom")))
+      grid.text(month.name[m])
+      
+      popViewport()
+    }
+  }
+}
+
+```
